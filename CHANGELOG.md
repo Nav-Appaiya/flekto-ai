@@ -4,6 +4,12 @@ Alles wat er per versie veranderd is. Ik hou [Keep a Changelog](https://keepacha
 
 ## [Unreleased]
 
+### Toegevoegd
+- Tijdelijke inbox: een wegwerp-mailadres waarvan je de mails live in je browser ziet, met afgeschermde HTML-weergave en externe plaatjes pas na een klik.
+- Mail-antwoordbot: mail de bot en krijg een antwoord van Claude terug, plus een check van SPF, DKIM, DMARC en spamsignalen.
+- Cloudflare Email Worker (`workers/mail/`) die de mail voor beide tools ontvangt.
+- README-uitleg over de mail-worker en de variabele `PUBLIC_MAIL_DOMAIN`.
+
 ## [1.0.0] - 2026-10-10
 
 De eerste echte release. De site ziet er nu hetzelfde uit als flekto.nl en alles is beschreven in de README.
