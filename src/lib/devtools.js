@@ -299,6 +299,139 @@ export function lookupStatus(input) {
   return rows.map(([code, text]) => `${code}  ${text}`).join("\n");
 }
 
+// --- Regex ----------------------------------------------------------------------------------------
+
+/** "/abc/gi" or plain "abc"; always global so every match is found. */
+export function toRegex(pattern) {
+  const literal = pattern.match(/^\/([\s\S]*)\/([dgimsuvy]*)$/);
+  const [body, flags] = literal ? [literal[1], literal[2]] : [pattern, ""];
+  return new RegExp(body, flags.includes("g") ? flags : `${flags}g`);
+}
+
+export function regexMatches(pattern, text) {
+  if (!pattern) throw new Error("Vul een regex in");
+  const matches = [...text.matchAll(toRegex(pattern))].slice(0, 500);
+  if (!matches.length) return "Geen matches.";
+  return [`${matches.length} match(es)`, ...matches.map((m, i) => {
+    const groups = m.slice(1).map((g, j) => `\n    groep ${j + 1}: ${JSON.stringify(g)}`).join("");
+    const named = m.groups ? Object.entries(m.groups).map(([k, v]) => `\n    ${k}: ${JSON.stringify(v)}`).join("") : "";
+    return `#${i + 1} op positie ${m.index}: ${JSON.stringify(m[0])}${groups}${named}`;
+  })].join("\n");
+}
+
+export const NL_PATTERNS = [
+  ["Postcode", String.raw`/^[1-9][0-9]{3} ?(?!SA|SD|SS)[A-Z]{2}$/i`],
+  ["Mobiel nummer", String.raw`/^(\+31|0031|0)6[ -]?[1-9]([ -]?[0-9]){7}$/`],
+  ["Vast nummer", String.raw`/^(\+31|0031|0)[1-9][0-9]{1,2}[ -]?[0-9]{6,7}$/`],
+  ["IBAN (NL)", String.raw`/^NL[0-9]{2} ?[A-Z]{4}( ?[0-9]{2}){5}$/i`],
+  ["Kenteken", String.raw`/^[A-Z0-9]{1,3}-?[A-Z0-9]{1,3}-?[A-Z0-9]{1,3}$/i`],
+  ["KvK-nummer", String.raw`/^[0-9]{8}$/`],
+  ["BTW-id", String.raw`/^NL[0-9]{9}B[0-9]{2}$/i`],
+  ["E-mailadres (praktisch)", String.raw`/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/`],
+];
+
+// --- Cron -----------------------------------------------------------------------------------------
+
+const CRON_FIELDS = [
+  { name: "minuut", min: 0, max: 59 },
+  { name: "uur", min: 0, max: 23 },
+  { name: "dag van de maand", min: 1, max: 31 },
+  { name: "maand", min: 1, max: 12, names: ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] },
+  { name: "weekdag", min: 0, max: 7, names: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] },
+];
+const MACROS = { "@yearly": "0 0 1 1 *", "@annually": "0 0 1 1 *", "@monthly": "0 0 1 * *", "@weekly": "0 0 * * 0", "@daily": "0 0 * * *", "@midnight": "0 0 * * *", "@hourly": "0 * * * *" };
+const WEEKDAYS = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+
+function cronValue(token, field) {
+  const index = field.names?.indexOf(token.toLowerCase()) ?? -1;
+  const value = index >= 0 ? index + field.min : Number(token);
+  if (!Number.isInteger(value) || value < field.min || value > field.max) throw new Error(`"${token}" mag niet als ${field.name} (${field.min}–${field.max})`);
+  return value;
+}
+
+/** One cron field ("*\/15", "1-5", "mon,wed") to the sorted list of values it allows. */
+function cronField(text, field) {
+  const values = new Set();
+  for (const part of text.split(",")) {
+    const [range, stepText] = part.split("/");
+    const step = stepText === undefined ? 1 : Number(stepText);
+    if (!Number.isInteger(step) || step < 1) throw new Error(`Ongeldige stap in "${part}"`);
+    const [from, to] = range === "*" ? [field.min, field.max] : range.split("-").map((t) => cronValue(t, field));
+    for (let v = from; v <= (to ?? (stepText ? field.max : from)); v += step) values.add(field.name === "weekdag" ? v % 7 : v);
+  }
+  return [...values].sort((a, b) => a - b);
+}
+
+export function parseCron(expression) {
+  const parts = (MACROS[expression.trim().toLowerCase()] ?? expression).trim().split(/\s+/);
+  if (parts.length !== 5) throw new Error("Een cron-regel heeft 5 velden: minuut uur dag maand weekdag");
+  const [minutes, hours, days, months, weekdays] = parts.map((p, i) => cronField(p, CRON_FIELDS[i]));
+  return { minutes, hours, days, months, weekdays, anyDay: parts[2] === "*", anyWeekday: parts[4] === "*" };
+}
+
+/** Classic cron: when both day fields are restricted, either one matching is enough. */
+function cronMatchesDay(cron, date) {
+  const day = cron.days.includes(date.getDate());
+  const weekday = cron.weekdays.includes(date.getDay());
+  if (cron.anyDay) return weekday;
+  if (cron.anyWeekday) return day;
+  return day || weekday;
+}
+
+export function nextRuns(cron, from = new Date(), count = 5) {
+  const runs = [];
+  const t = new Date(from);
+  t.setSeconds(0, 0);
+  for (let i = 0; i < 527040 && runs.length < count; i++) { // ponytail: minute-by-minute scan over a year, plenty fast for 5 runs
+    t.setMinutes(t.getMinutes() + 1);
+    if (cron.minutes.includes(t.getMinutes()) && cron.hours.includes(t.getHours()) && cron.months.includes(t.getMonth() + 1) && cronMatchesDay(cron, t)) runs.push(new Date(t));
+  }
+  return runs;
+}
+
+const list = (values, all, label) => (values.length === all ? `elke ${label}` : values.join(", "));
+
+export function explainCron(expression, now = new Date()) {
+  const cron = parseCron(expression);
+  const runs = nextRuns(cron, now);
+  return [
+    `Minuut:     ${list(cron.minutes, 60, "minuut")}`,
+    `Uur:        ${list(cron.hours, 24, "uur")}`,
+    `Dag:        ${cron.anyDay ? "elke dag" : cron.days.join(", ")}`,
+    `Maand:      ${list(cron.months, 12, "maand")}`,
+    `Weekdag:    ${cron.anyWeekday ? "elke weekdag" : cron.weekdays.map((d) => WEEKDAYS[d]).join(", ")}`,
+    "",
+    runs.length ? "Volgende keren (jouw tijdzone):" : "Draait het komende jaar niet.",
+    ...runs.map((r) => `  ${r.toLocaleString("nl-NL", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`),
+  ].join("\n");
+}
+
+// --- Diff -----------------------------------------------------------------------------------------
+
+const MAX_DIFF_LINES = 3000;
+
+/** Line diff via longest common subsequence: "  " same, "- " only in A, "+ " only in B. */
+export function lineDiff(a, b) {
+  const x = a.split("\n");
+  const y = b.split("\n");
+  if (x.length > MAX_DIFF_LINES || y.length > MAX_DIFF_LINES) throw new Error(`Maximaal ${MAX_DIFF_LINES} regels per kant`);
+  const lcs = Array.from({ length: x.length + 1 }, () => new Uint16Array(y.length + 1));
+  for (let i = x.length - 1; i >= 0; i--) for (let j = y.length - 1; j >= 0; j--) lcs[i][j] = x[i] === y[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < x.length || j < y.length) {
+    if (i < x.length && j < y.length && x[i] === y[j]) { out.push(`  ${x[i]}`); i++; j++; }
+    else if (j < y.length && (i === x.length || lcs[i][j + 1] >= lcs[i + 1][j])) out.push(`+ ${y[j++]}`);
+    else out.push(`- ${x[i++]}`);
+  }
+  const changes = out.filter((l) => l[0] !== " ").length;
+  return changes ? `${changes} regel(s) verschillen\n\n${out.join("\n")}` : "Geen verschillen.";
+}
+
+const sortedJson = (s) => JSON.stringify(JSON.parse(s, (_, v) => (isObject(v) ? Object.fromEntries(Object.entries(v).sort(([p], [q]) => p.localeCompare(q))) : v)), null, 2);
+
+export const jsonDiff = (a, b) => lineDiff(sortedJson(a), sortedJson(b));
+
 // --- Registry -------------------------------------------------------------------------------------
 
 export const DEV_TOOLS = [
@@ -336,6 +469,17 @@ export const DEV_TOOLS = [
   { slug: "curl-naar-fetch", name: "cURL → fetch", emoji: "🌀", blurb: "cURL uit de API-docs of DevTools plakken en je krijgt er een fetch() voor terug.",
     placeholder: "curl -X POST https://api.example.com/users -H 'Content-Type: application/json' -d '{\"name\":\"Ada\"}'",
     modes: [{ label: "Converteer", run: curlToFetch }] },
+  { slug: "regex-tester", name: "Regex tester", emoji: "🔍", blurb: "Test je regex en zie meteen wat hij matcht, met groepen. Inclusief kant-en-klare patronen voor postcode, IBAN en telefoonnummers.",
+    placeholder: "/(\\d{4}) ?([A-Z]{2})/g",
+    second: { label: "Testtekst", placeholder: "Ons kantoor zit op 3011 AB en het magazijn op 1012AB." },
+    modes: [{ label: "Test", run: regexMatches }, { label: "NL-patronen", run: () => NL_PATTERNS.map(([name, re]) => `${name.padEnd(24)} ${re}`).join("\n") }] },
+  { slug: "cron-uitlegger", name: "Cron uitlegger", emoji: "⏰", blurb: "Wat doet */15 9-17 * * 1-5 eigenlijk? Je krijgt het in gewoon Nederlands, plus de volgende vijf keren dat hij draait.",
+    placeholder: "*/15 9-17 * * 1-5",
+    modes: [{ label: "Leg uit", run: (s) => explainCron(s) }] },
+  { slug: "diff-checker", name: "Diff checker", emoji: "🆚", blurb: "Plak twee versies en zie per regel wat er anders is. Met een JSON-modus die eerst de keys sorteert, zodat alleen echte verschillen overblijven.",
+    placeholder: "Versie A",
+    second: { label: "Versie B", placeholder: "Versie B" },
+    modes: [{ label: "Tekst", run: lineDiff }, { label: "JSON", run: jsonDiff }] },
   { slug: "http-statuscodes", name: "HTTP statuscodes", emoji: "🚦", blurb: "Was 422 nou validatie en 409 een conflict? Zoek op code of op een woord.",
     placeholder: "429 of 'redirect' (leeg = alles)",
     modes: [{ label: "Zoek", run: lookupStatus }] },

@@ -13,6 +13,10 @@ const others = DEV_TOOLS.filter((t) => t !== tool);
   <div class="card tool" data-slug={tool.slug}>
     <label for="input">Invoer</label>
     <textarea id="input" rows="8" spellcheck="false" autocomplete="off" placeholder={tool.placeholder}></textarea>
+    {tool.second && <>
+      <label for="second">{tool.second.label}</label>
+      <textarea id="second" rows="8" spellcheck="false" autocomplete="off" placeholder={tool.second.placeholder}></textarea>
+    </>}
     <div class="modes" role="group" aria-label="Actie">
       {tool.modes.map((m, i) => <button type="button" class:list={["btn", i > 0 && "ghost"]} data-mode={i}>{m.label}</button>)}
     </div>
@@ -43,6 +47,7 @@ const others = DEV_TOOLS.filter((t) => t !== tool);
     const root = document.querySelector<HTMLElement>("[data-slug]")!;
     const tool = DEV_TOOLS.find((t) => t.slug === root.dataset.slug)!;
     const input = document.getElementById("input") as HTMLTextAreaElement;
+    const second = document.getElementById("second") as HTMLTextAreaElement | null;
     const output = document.getElementById("output")!;
     const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-mode]")];
     let mode = 0;
@@ -51,7 +56,7 @@ const others = DEV_TOOLS.filter((t) => t !== tool);
     async function run() {
       const id = ++runId; // async modes (hashes) may finish out of order; only the latest run may write
       try {
-        const result = await tool.modes[mode].run(input.value);
+        const result = await tool.modes[mode].run(input.value, second?.value ?? "");
         if (id !== runId) return;
         output.textContent = result;
         output.classList.remove("error");
@@ -68,6 +73,7 @@ const others = DEV_TOOLS.filter((t) => t !== tool);
       run();
     }));
     input.addEventListener("input", run);
+    second?.addEventListener("input", run);
     document.getElementById("copy")!.addEventListener("click", async (e) => {
       await navigator.clipboard.writeText(output.textContent ?? "");
       (e.target as HTMLButtonElement).textContent = "Gekopieerd ✓";

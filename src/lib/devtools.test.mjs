@@ -78,5 +78,5 @@ assert.match(lookupStatus("429"), /^429 {2}Too Many/);
 assert.match(lookupStatus("redirect"), /307/);
 assert.throws(() => lookupStatus("999"));
 
-assert.equal(new Set(DEV_TOOLS.map((t) => t.slug)).size, 12);
+assert.equal(new Set(DEV_TOOLS.map((t) => t.slug)).size, 15);
 console.log("ok");
