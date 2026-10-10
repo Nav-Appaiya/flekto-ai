@@ -1,0 +1,19 @@
+---
+import { TOOLS } from "../data/tools.js";
+---
+<ul class="grid">
+  {TOOLS.map((t) => (
+    <li><a class="card tool" href={t.href}>
+      <span class="emoji" aria-hidden="true">{t.emoji}</span>
+      <strong>{t.name}</strong>
+      <span class="muted">{t.blurb}</span>
+    </a></li>
+  ))}
+</ul>
+<style>
+  .grid { list-style: none; padding: 0; margin: 1.5rem 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+  .tool { display: flex; flex-direction: column; gap: .35rem; height: 100%; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+  .tool:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .emoji { font-size: 1.8rem; }
+  strong { font-size: 1.1rem; }
+</style>

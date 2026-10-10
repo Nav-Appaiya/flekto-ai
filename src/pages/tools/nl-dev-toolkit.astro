@@ -1,0 +1,39 @@
+---
+import Base from "../../layouts/Base.astro";
+import { TYPES } from "../../lib/nl.js";
+---
+<Base title="NL dev toolkit" description="Valideer en genereer test-BSN, IBAN, postcode, KvK- en BTW-nummers. Alles draait in je browser.">
+  <h1>🧰 NL dev toolkit</h1>
+  <p class="lead">Valideer of genereer Nederlandse testdata voor je formulieren en testsuites. Alles draait lokaal in je browser; er wordt niets verstuurd.</p>
+  <div class="card">
+  {TYPES.map((t) => (
+    <section class="row" data-key={t.key}>
+      <label for={t.key}>{t.label}</label>
+      <input id={t.key} placeholder={t.example} autocomplete="off" spellcheck="false" />
+      <button type="button" class="btn ghost">Genereer</button>
+      <output aria-live="polite"></output>
+    </section>
+  ))}
+  </div>
+  <p class="muted">Gegenereerde nummers zijn nep maar kloppen met de checksum (11-proef, mod 97). Gebruik ze alleen voor tests.</p>
+
+  <style>
+    .row { display: grid; grid-template-columns: 8rem 1fr auto 2rem; gap: .6rem; align-items: center; margin: .5rem 0; }
+    input { font-family: ui-monospace, Menlo, monospace; }
+    label { font-weight: 500; }
+    output { font-size: 1.2rem; }
+    @media (max-width: 30rem) { .row { grid-template-columns: 1fr auto 2rem; } label { grid-column: 1 / -1; } }
+  </style>
+
+  <script>
+    import { TYPES } from "../../lib/nl.js";
+    for (const t of TYPES) {
+      const row = document.querySelector(`[data-key="${t.key}"]`)!;
+      const input = row.querySelector("input")!;
+      const output = row.querySelector("output")!;
+      const check = () => { output.textContent = input.value.trim() ? (t.isValid(input.value) ? "✅" : "❌") : ""; };
+      input.addEventListener("input", check);
+      row.querySelector("button")!.addEventListener("click", () => { input.value = t.generate(); check(); input.select(); });
+    }
+  </script>
+</Base>

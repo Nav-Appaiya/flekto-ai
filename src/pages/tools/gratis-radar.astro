@@ -1,0 +1,117 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Gratis-radar" description="Zie welke spullen er gratis worden aangeboden op Marktplaats binnen een paar km van jouw postcode.">
+  <h1>🎁 Gratis-radar</h1>
+  <p class="lead">Wat wordt er bij jou in de buurt gratis weggegeven op Marktplaats? Vul je postcode in en zie het, gesorteerd op afstand.</p>
+
+  <form id="search" class="card controls">
+    <label>Postcode <input name="postcode" required placeholder="1012 AB" autocomplete="postal-code" maxlength="7" /></label>
+    <label>Straal
+      <select name="radius">
+        <option value="1">1 km</option><option value="2" selected>2 km</option>
+        <option value="5">5 km</option><option value="10">10 km</option>
+      </select>
+    </label>
+    <label>Filter <input name="filter" placeholder="bijv. kast, fiets" /></label>
+    <button class="btn">Zoeken</button>
+  </form>
+
+  <p id="status" class="muted" aria-live="polite"></p>
+  <ul id="results" class="results"></ul>
+
+  <h2>Pushmelding bij nieuwe spullen</h2>
+  <p>Wil je niet steeds zelf kijken? De radar draait ook als GitHub Action die elke 15 minuten checkt en nieuwe items naar je telefoon stuurt via <a href="https://ntfy.sh">ntfy</a>.</p>
+  <ol>
+    <li>Installeer de ntfy-app en abonneer je op een geheim topic, bijv. <code>gratis-k3x9q</code>.</li>
+    <li>Fork de repo en zet <code>POSTCODE</code> en <code>RADIUS_KM</code> als variables, en <code>NTFY_TOPIC</code> als secret.</li>
+    <li>Klaar. Of draai hem lokaal: <code>POSTCODE=1012AB NTFY_TOPIC=gratis-k3x9q node gratis-radar/radar.mjs</code></li>
+  </ol>
+
+  <h2>Hoe het werkt</h2>
+  <ol>
+    <li>Je postcode wordt omgezet naar coördinaten via de open <a href="https://api.pdok.nl/bzk/locatieserver/search/v3_1/ui/">PDOK Locatieserver</a>.</li>
+    <li>De nieuwste "gratis"-advertenties worden opgehaald en alleen die met prijstype <em>Gratis</em> blijven over; "gezocht"-posts vallen af.</li>
+    <li>Met de exacte coördinaten van elke advertentie wordt de echte afstand berekend (haversine), nauwkeuriger dan de zoekstraal van Marktplaats.</li>
+  </ol>
+  <p class="muted">Flekto slaat geen advertenties op; resultaten worden 5 minuten gecachet en elke link gaat naar Marktplaats. Niet gelieerd aan Marktplaats.</p>
+
+  <style>
+    .controls { display: grid; grid-template-columns: 1fr 7rem 1.5fr auto; gap: .75rem; align-items: end; }
+    .controls label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; color: var(--muted); }
+    @media (max-width: 40rem) { .controls { grid-template-columns: 1fr 1fr; } .controls .btn { grid-column: 1 / -1; } }
+    .results { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+    .results :global(a) { display: flex; flex-direction: column; height: 100%; color: inherit; text-decoration: none; overflow: hidden; padding: 0; }
+    .results :global(a:hover) { border-color: var(--accent); }
+    .results :global(img), .results :global(.noimg) { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--line); display: grid; place-items: center; font-size: 2rem; }
+    .results :global(.body) { padding: .75rem 1rem 1rem; display: flex; flex-direction: column; gap: .25rem; }
+    .results :global(.km) { font-weight: 700; color: var(--accent-ink); font-size: .9rem; }
+    .results :global(.meta) { font-size: .85rem; color: var(--muted); }
+  </style>
+
+  <script>
+    type Hit = { id: string; title: string; km: number; city: string; date: string; image: string | null; url: string };
+
+    const form = document.querySelector<HTMLFormElement>("#search")!;
+    const status = document.querySelector<HTMLElement>("#status")!;
+    const list = document.querySelector<HTMLUListElement>("#results")!;
+    let hits: Hit[] = [];
+
+    function card(hit: Hit) {
+      const li = document.createElement("li");
+      const a = Object.assign(document.createElement("a"), { href: hit.url, target: "_blank", rel: "noopener", className: "card" });
+      const media = hit.image
+        ? Object.assign(document.createElement("img"), { src: hit.image, alt: "", loading: "lazy" })
+        : Object.assign(document.createElement("div"), { className: "noimg", textContent: "🎁" });
+      const body = Object.assign(document.createElement("div"), { className: "body" });
+      body.append(
+        Object.assign(document.createElement("span"), { className: "km", textContent: `${hit.km.toFixed(1)} km` }),
+        Object.assign(document.createElement("strong"), { textContent: hit.title }),
+        Object.assign(document.createElement("span"), { className: "meta", textContent: [hit.city, hit.date].filter(Boolean).join(" · ") }),
+      );
+      a.append(media, body);
+      li.append(a);
+      return li;
+    }
+
+    function render() {
+      const words = String(new FormData(form).get("filter")).toLowerCase().split(",").map((w) => w.trim()).filter(Boolean);
+      const shown = words.length ? hits.filter((h) => words.some((w) => h.title.toLowerCase().includes(w))) : hits;
+      list.replaceChildren(...shown.map(card));
+      status.textContent = hits.length ? `${shown.length} gratis item${shown.length === 1 ? "" : "s"} gevonden.` : "Niks gevonden. Probeer een grotere straal.";
+    }
+
+    async function search() {
+      const data = new FormData(form);
+      const q = new URLSearchParams({ postcode: String(data.get("postcode")), radius: String(data.get("radius")) });
+      status.textContent = "Zoeken…";
+      status.classList.remove("error");
+      try {
+        const res = await fetch(`/api/gratis?${q}`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        hits = body.items;
+        try { localStorage.setItem("gratis-radar", q.toString()); } catch {}
+        render();
+      } catch (err) {
+        hits = [];
+        list.replaceChildren();
+        status.textContent = (err as Error).message || "Er ging iets mis.";
+        status.classList.add("error");
+      }
+    }
+
+    form.addEventListener("submit", (e) => { e.preventDefault(); search(); });
+    form.elements.namedItem("filter")!.addEventListener("input", () => hits.length && render());
+
+    function restoreLastSearch() {
+      let saved: URLSearchParams;
+      try { saved = new URLSearchParams(localStorage.getItem("gratis-radar") ?? ""); } catch { return; }
+      if (!saved.get("postcode")) return;
+      (form.elements.namedItem("postcode") as HTMLInputElement).value = saved.get("postcode")!;
+      (form.elements.namedItem("radius") as HTMLSelectElement).value = saved.get("radius") ?? "2";
+      search();
+    }
+    restoreLastSearch();
+  </script>
+</Base>

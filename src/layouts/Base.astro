@@ -1,0 +1,62 @@
+---
+const { title, description = "" } = Astro.props;
+---
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Flekto</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <style is:global>
+      :root {
+        --bg: #fcfcfb; --fg: #17171a; --muted: #62626b; --line: #e4e4e0; --card: #ffffff;
+        --accent: #e8461f; --accent-ink: #c2381a; --bar: #5b86c4; --bad: #c2381a;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #1a1a19; --fg: #ececea; --muted: #a2a29c; --line: #33332f; --card: #232321;
+                --accent: #e8552f; --accent-ink: #ff8a6b; --bar: #5b86c4; --bad: #ff8a6b; color-scheme: dark; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 system-ui, -apple-system, sans-serif; }
+      .wrap { max-width: 60rem; margin: 0 auto; padding: 0 16px; }
+      header { border-bottom: 1px solid var(--line); }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 4rem; }
+      header img { height: 28px; width: auto; display: block; }
+      header nav a { color: var(--fg); text-decoration: none; font-weight: 500; margin-left: 1.2rem; }
+      header nav a:hover { color: var(--accent-ink); }
+      main.wrap { padding-top: 2.5rem; padding-bottom: 4rem; }
+      footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; padding: 1.5rem 0; }
+      h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; margin: 0 0 .5rem; }
+      h2 { margin-top: 2.5rem; }
+      a { color: var(--accent-ink); }
+      .lead { font-size: 1.15rem; color: var(--muted); max-width: 40rem; }
+      .muted { color: var(--muted); }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; }
+      code, pre { font-family: ui-monospace, Menlo, monospace; background: var(--card); border: 1px solid var(--line); border-radius: 6px; }
+      code { padding: .1em .35em; font-size: .9em; }
+      pre { padding: 1rem; overflow-x: auto; }
+      pre code { border: 0; padding: 0; }
+      input, select, button { font: inherit; color: inherit; }
+      input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .55rem .75rem; min-width: 0; }
+      input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; }
+      .btn:hover { filter: brightness(1.08); }
+      .btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+      .error { color: var(--bad); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <a href="/" aria-label="Flekto home"><img src="/logo.png" alt="Flekto" width="127" height="28" /></a>
+        <nav><a href="/tools/">Tools</a></nav>
+      </div>
+    </header>
+    <main class="wrap"><slot /></main>
+    <footer><div class="wrap">© {new Date().getFullYear()} Flekto · Gebouwd met open data en AI.</div></footer>
+  </body>
+</html>

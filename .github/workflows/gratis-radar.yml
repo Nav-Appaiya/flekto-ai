@@ -1,0 +1,21 @@
+name: gratis-radar
+on:
+  schedule: [{ cron: "*/15 7-22 * * *" }]  # every 15 min, 07-22 UTC
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node gratis-radar/radar.mjs
+        env:
+          POSTCODE: ${{ vars.POSTCODE }}
+          RADIUS_KM: ${{ vars.RADIUS_KM }}
+          KEYWORDS: ${{ vars.KEYWORDS }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      - run: |
+          git config user.name gratis-radar && git config user.email actions@users.noreply.github.com
+          git add gratis-radar/seen.json && git diff --cached --quiet || (git commit -m "radar: seen" && git push)

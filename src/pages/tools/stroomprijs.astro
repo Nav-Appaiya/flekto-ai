@@ -1,0 +1,184 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Stroomprijs-planner" description="De goedkoopste uren van vandaag en morgen voor wie een dynamisch energiecontract heeft.">
+  <h1>⚡ Stroomprijs-planner</h1>
+  <p class="lead">Heb je een dynamisch energiecontract? Zie wanneer stroom vandaag en morgen het goedkoopst is, en plan je wasmachine, vaatwasser of laadsessie.</p>
+
+  <div class="card">
+    <div class="ask">
+      <label for="hours">Hoe lang moet het apparaat draaien?</label>
+      <select id="hours">
+        <option value="1">1 uur</option><option value="2" selected>2 uur</option>
+        <option value="3">3 uur</option><option value="4">4 uur (EV laden)</option><option value="6">6 uur</option>
+      </select>
+    </div>
+    <p id="answer" class="answer" aria-live="polite">Prijzen laden…</p>
+
+    <figure class="chart">
+      <figcaption class="muted">Kale stroomprijs per uur (€/kWh incl. btw)</figcaption>
+      <div class="plot">
+        <div id="bars" class="bars" role="img" aria-label="Stroomprijs per uur, vandaag en morgen"></div>
+        <div id="tip" class="tip" hidden></div>
+        <span id="ymax" class="ymax"></span>
+      </div>
+      <div id="axis" class="axis" aria-hidden="true"></div>
+      <p class="key"><span class="sw cheap"></span> Goedkoopste blok <span class="sw now"></span> Nu</p>
+    </figure>
+
+    <details>
+      <summary>Toon als tabel</summary>
+      <table><thead><tr><th>Tijd</th><th>€/kWh</th></tr></thead><tbody id="table"></tbody></table>
+    </details>
+  </div>
+
+  <h2>Hoe het werkt</h2>
+  <p>De uurprijzen komen van de day-ahead-markt (EPEX) via de open API van <a href="https://www.energyzero.nl">EnergyZero</a>, rechtstreeks vanuit je browser. De prijzen voor morgen verschijnen elke dag rond 13:00. De planner zoekt het aaneengesloten blok uren met de laagste gemiddelde prijs, vanaf het huidige uur.</p>
+  <p class="muted">Dit is de kale marktprijs incl. btw. Je leverancier rekent daar nog energiebelasting en een opslag bovenop; die zijn per uur gelijk, dus het goedkoopste blok blijft hetzelfde.</p>
+
+  <style>
+    .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+    .answer { font-size: 1.25rem; margin: 1rem 0 1.5rem; }
+    .answer strong { color: var(--accent-ink); }
+    .chart { margin: 0; }
+    .plot { position: relative; }
+    .bars { display: flex; gap: 2px; height: 220px; border-bottom: 1px solid var(--line); }
+    .bars :global(.col) { flex: 1; position: relative; outline: none; }
+    .bars :global(.bar) { position: absolute; left: 0; right: 0; background: var(--bar); border-radius: 4px 4px 0 0; }
+    .bars :global(.bar.neg) { border-radius: 0 0 4px 4px; }
+    .bars :global(.cheap .bar) { background: var(--accent); }
+    .bars :global(.now::after) { content: ""; position: absolute; inset: 0; border: 2px solid var(--fg); border-radius: 4px; opacity: .5; }
+    .bars :global(.past .bar) { opacity: .35; }
+    .bars :global(.col:hover .bar), .bars :global(.col:focus-visible .bar) { filter: brightness(1.2); }
+    .bars :global(.zero) { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
+    .ymax { position: absolute; top: 0; left: 0; font-size: .75rem; color: var(--muted); background: var(--card); padding-right: .3rem; pointer-events: none; }
+    .tip { position: absolute; top: -.5rem; transform: translate(-50%, -100%); background: var(--fg); color: var(--bg); padding: .3rem .55rem; border-radius: 6px; font-size: .85rem; white-space: nowrap; pointer-events: none; }
+    .axis { display: flex; gap: 2px; font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+    .axis :global(span) { flex: 1; text-align: left; white-space: nowrap; overflow: visible; width: 0; }
+    .axis :global(.day) { color: var(--fg); font-weight: 600; }
+    .key { font-size: .85rem; color: var(--muted); display: flex; gap: .4rem; align-items: center; margin-top: 1rem; }
+    .sw { display: inline-block; width: .9rem; height: .9rem; border-radius: 3px; margin-left: .6rem; }
+    .sw.cheap { background: var(--accent); margin-left: 0; }
+    .sw.now { border: 2px solid var(--fg); opacity: .5; }
+    details { margin-top: 1rem; }
+    table { border-collapse: collapse; margin-top: .5rem; font-variant-numeric: tabular-nums; }
+    table :global(td), th { padding: .2rem 1rem .2rem 0; text-align: left; }
+  </style>
+
+  <script>
+    import { cheapestWindow, fetchPrices } from "../../lib/stroom.js";
+
+    type Price = { time: Date; price: number };
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const select = $<HTMLSelectElement>("hours");
+    const answer = $("answer");
+    const bars = $("bars");
+    const tip = $("tip");
+
+    const hhmm = (d: Date) => d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+    const euro = (p: number) => `€ ${p.toFixed(3).replace(".", ",")}`;
+    const isToday = (d: Date) => d.toDateString() === new Date().toDateString();
+    const dayName = (d: Date) => (isToday(d) ? "vandaag" : "morgen");
+    const hourEnd = (d: Date) => new Date(d.getTime() + 3600_000);
+
+    function renderAnswer(prices: Price[], hours: number, best: { start: number; avg: number } | null) {
+      if (!best) {
+        answer.textContent = `Er zijn niet genoeg bekende uren meer voor een blok van ${hours} uur. Morgen verschijnt rond 13:00.`;
+        return;
+      }
+      const from = prices[best.start].time;
+      const to = hourEnd(prices[best.start + hours - 1].time);
+      const when = Object.assign(document.createElement("strong"), { textContent: `${dayName(from)} ${hhmm(from)}–${hhmm(to)}` });
+      answer.replaceChildren("Goedkoopst: ", when, `, gemiddeld ${euro(best.avg)} per kWh.`);
+    }
+
+    function column(p: Price, scale: { max: number; min: number }) {
+      const span = scale.max - scale.min || 1;
+      const zeroPct = (scale.max / span) * 100; // distance of the zero line from the top
+      const heightPct = (Math.abs(p.price) / span) * 100;
+      const col = Object.assign(document.createElement("div"), { className: "col", tabIndex: 0 });
+      const bar = Object.assign(document.createElement("div"), { className: p.price < 0 ? "bar neg" : "bar" });
+      bar.style.top = `${p.price < 0 ? zeroPct : zeroPct - heightPct}%`;
+      bar.style.height = `${Math.max(heightPct, 0.5)}%`;
+      col.append(bar);
+      col.dataset.tip = `${dayName(p.time)} ${hhmm(p.time)}–${hhmm(hourEnd(p.time))}: ${euro(p.price)}`;
+      col.setAttribute("aria-label", col.dataset.tip);
+      return col;
+    }
+
+    /** Y-range always includes zero, so negative prices hang below the baseline. */
+    const scaleOf = (prices: Price[]) =>
+      ({ max: Math.max(0, ...prices.map((p) => p.price)), min: Math.min(0, ...prices.map((p) => p.price)) });
+
+    function renderChart(prices: Price[], hours: number, best: { start: number } | null) {
+      const scale = scaleOf(prices);
+      const now = Date.now();
+      const cols = prices.map((p, i) => {
+        const col = column(p, scale);
+        const end = hourEnd(p.time).getTime();
+        col.classList.toggle("past", end <= now);
+        col.classList.toggle("now", p.time.getTime() <= now && now < end);
+        col.classList.toggle("cheap", !!best && i >= best.start && i < best.start + hours);
+        return col;
+      });
+      const zero = Object.assign(document.createElement("div"), { className: "zero" });
+      zero.style.top = `${(scale.max / (scale.max - scale.min || 1)) * 100}%`;
+      bars.replaceChildren(...cols, ...(scale.min < 0 ? [zero] : []));
+      $("ymax").textContent = euro(scale.max);
+    }
+
+    function renderAxis(prices: Price[]) {
+      $("axis").replaceChildren(...prices.map((p) => {
+        const h = p.time.getHours();
+        const label = h === 0 ? dayName(p.time) : h % 6 === 0 ? `${h}:00` : "";
+        return Object.assign(document.createElement("span"), { textContent: label, className: h === 0 ? "day" : "" });
+      }));
+    }
+
+    function renderTable(prices: Price[]) {
+      $("table").replaceChildren(...prices.map((p) => {
+        const tr = document.createElement("tr");
+        tr.append(...[`${dayName(p.time)} ${hhmm(p.time)}`, euro(p.price)].map((text) =>
+          Object.assign(document.createElement("td"), { textContent: text })));
+        return tr;
+      }));
+    }
+
+    function showTip(e: Event) {
+      const col = (e.target as HTMLElement).closest<HTMLElement>(".col");
+      if (!col) return void (tip.hidden = true);
+      tip.textContent = col.dataset.tip!;
+      tip.style.left = `${Math.min(Math.max(col.offsetLeft + col.offsetWidth / 2, 70), bars.offsetWidth - 70)}px`;
+      tip.hidden = false;
+    }
+
+    function bindTooltip() {
+      const hide = () => (tip.hidden = true);
+      bars.addEventListener("pointerover", showTip);
+      bars.addEventListener("focusin", showTip);
+      bars.addEventListener("pointerleave", hide);
+      bars.addEventListener("focusout", hide);
+    }
+
+    async function main() {
+      try {
+        const prices: Price[] = await fetchPrices();
+        const update = () => {
+          const hours = Number(select.value);
+          const best = cheapestWindow(prices, hours, new Date());
+          renderAnswer(prices, hours, best);
+          renderChart(prices, hours, best);
+        };
+        renderAxis(prices);
+        renderTable(prices);
+        update();
+        select.addEventListener("change", update);
+        bindTooltip();
+      } catch {
+        answer.textContent = "Kon de prijzen niet laden. Probeer het later opnieuw.";
+        answer.classList.add("error");
+      }
+    }
+    main();
+  </script>
+</Base>
