@@ -1,0 +1,67 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Wachtwoord generator" description="Genereer sterke, willekeurige wachtwoorden. Volledig in je browser, er wordt niets verstuurd.">
+  <h1>🔐 Wachtwoord generator</h1>
+  <p class="lead">Genereer een sterk wachtwoord dat nergens wordt opgeslagen of verstuurd.</p>
+
+  <div class="card gen">
+    <output id="pw" class="pw">—</output>
+    <div class="row">
+      <label>Lengte <input id="len" type="range" min="8" max="64" value="20" /></label>
+      <span id="len-val" class="muted">20</span>
+    </div>
+    <fieldset>
+      <legend class="muted">Bevat</legend>
+      <label><input type="checkbox" data-set="upper" checked /> A–Z</label>
+      <label><input type="checkbox" data-set="lower" checked /> a–z</label>
+      <label><input type="checkbox" data-set="digits" checked /> 0–9</label>
+      <label><input type="checkbox" data-set="symbols" checked /> !@#$…</label>
+    </fieldset>
+    <div class="row">
+      <button id="go" class="btn" type="button">Nieuw wachtwoord</button>
+      <button id="copy" class="btn ghost" type="button">Kopiëren</button>
+    </div>
+  </div>
+
+  <style>
+    .gen { max-width: 32rem; display: grid; gap: 1rem; }
+    .pw { font: 1.3rem/1.5 ui-monospace, Menlo, monospace; word-break: break-all; background: var(--alt); padding: .8rem 1rem; border-radius: 8px; border: 1px solid var(--line); user-select: all; min-height: 3.5rem; }
+    .row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; flex-wrap: wrap; }
+    legend { margin-bottom: .3rem; font-size: .9rem; }
+    fieldset label { display: flex; align-items: center; gap: .3rem; cursor: pointer; }
+    label { font-size: .95rem; }
+    input[type="range"] { flex: 1; accent-color: var(--accent); }
+  </style>
+
+  <script>
+    const CHARS: Record<string, string> = {
+      upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      lower: "abcdefghijklmnopqrstuvwxyz",
+      digits: "0123456789",
+      symbols: "!@#$%^&*()-_=+[]{}|;:,.<>?",
+    };
+
+    const pw = document.getElementById("pw")!;
+    const len = document.getElementById("len") as HTMLInputElement;
+    const lenVal = document.getElementById("len-val")!;
+    const boxes = document.querySelectorAll<HTMLInputElement>("[data-set]");
+
+    function generate() {
+      const pool = [...boxes].filter((b) => b.checked).map((b) => CHARS[b.dataset.set!]).join("");
+      if (!pool) { pw.textContent = "Kies minimaal één set"; return; }
+      const n = +len.value;
+      lenVal.textContent = String(n);
+      const arr = new Uint32Array(n);
+      crypto.getRandomValues(arr);
+      pw.textContent = [...arr].map((v) => pool[v % pool.length]).join("");
+    }
+
+    len.addEventListener("input", generate);
+    for (const b of boxes) b.addEventListener("change", generate);
+    document.getElementById("go")!.addEventListener("click", generate);
+    document.getElementById("copy")!.addEventListener("click", () => navigator.clipboard.writeText(pw.textContent || ""));
+    generate();
+  </script>
+</Base>

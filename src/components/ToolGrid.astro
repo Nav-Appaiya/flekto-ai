@@ -6,15 +6,15 @@ import { TOOLS } from "../data/tools.js";
     <li><a class="card tool" href={t.href}>
       <span class="emoji" aria-hidden="true">{t.emoji}</span>
       <strong>{t.name}</strong>
-      <span class="muted">{t.blurb}</span>
+      <span class="blurb">{t.blurb}</span>
     </a></li>
   ))}
 </ul>
 <style>
-  .grid { list-style: none; padding: 0; margin: 1.5rem 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
-  .tool { display: flex; flex-direction: column; gap: .35rem; height: 100%; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
-  .tool:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
-  .tool .muted { font-size: .95rem; }
-  .emoji { font-size: 1.8rem; }
-  strong { font-size: 1.1rem; font-weight: 600; }
+  .grid { list-style: none; padding: 0; margin: 2rem 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+  .tool { display: flex; flex-direction: column; gap: .4rem; height: 100%; color: inherit; text-decoration: none; }
+  .tool:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .blurb { font-size: .92rem; color: var(--muted); line-height: 1.5; }
+  .emoji { font-size: 2rem; line-height: 1; }
+  strong { font-size: 1.05rem; font-weight: 700; }
 </style>

@@ -1,0 +1,97 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Kleurenconverter" description="Reken kleuren om van HEX naar RGB en HSL en andersom. Met live preview.">
+  <h1>🎨 Kleurenconverter</h1>
+  <p class="lead">Voer een kleur in als HEX, RGB of HSL en bekijk de omrekening. Klik om te kopiëren.</p>
+
+  <div class="card conv">
+    <div class="preview" id="preview"></div>
+    <label>HEX <input id="hex" type="text" value="#335eea" placeholder="#335eea" /></label>
+    <label>RGB <input id="rgb" type="text" placeholder="51, 94, 234" /></label>
+    <label>HSL <input id="hsl" type="text" placeholder="226, 82%, 56%" /></label>
+    <label>Picker <input id="picker" type="color" value="#335eea" /></label>
+  </div>
+
+  <style>
+    .conv { max-width: 28rem; display: grid; gap: .8rem; }
+    .conv label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+    .conv input[type="text"] { font-family: ui-monospace, Menlo, monospace; cursor: pointer; }
+    .preview { height: 5rem; border-radius: 8px; border: 1px solid var(--line); }
+    input[type="color"] { width: 4rem; height: 2.4rem; padding: .15rem; }
+  </style>
+
+  <script>
+    const hexEl = document.getElementById("hex") as HTMLInputElement;
+    const rgbEl = document.getElementById("rgb") as HTMLInputElement;
+    const hslEl = document.getElementById("hsl") as HTMLInputElement;
+    const picker = document.getElementById("picker") as HTMLInputElement;
+    const preview = document.getElementById("preview")!;
+
+    function hexToRgb(hex: string) {
+      const m = hex.replace("#", "").match(/.{2}/g);
+      return m ? m.map((v) => parseInt(v, 16)) as [number, number, number] : null;
+    }
+
+    function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+      const l = (max + min) / 2;
+      if (d === 0) return [0, 0, Math.round(l * 100)];
+      const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      let h = 0;
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+      return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+    }
+
+    function update(hex: string, source?: HTMLElement) {
+      hex = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
+      const rgb = hexToRgb(hex);
+      if (!rgb) return;
+      const [h, s, l] = rgbToHsl(...rgb);
+      preview.style.background = hex;
+      if (source !== hexEl) hexEl.value = hex;
+      if (source !== rgbEl) rgbEl.value = rgb.join(", ");
+      if (source !== hslEl) hslEl.value = `${h}, ${s}%, ${l}%`;
+      picker.value = hex;
+    }
+
+    hexEl.addEventListener("input", () => {
+      let v = hexEl.value.trim();
+      if (!v.startsWith("#")) v = "#" + v;
+      if (/^#[0-9a-f]{3,6}$/i.test(v) && (v.length === 4 || v.length === 7)) update(v, hexEl);
+    });
+
+    rgbEl.addEventListener("input", () => {
+      const parts = rgbEl.value.split(/[\s,]+/).map(Number);
+      if (parts.length === 3 && parts.every((n) => n >= 0 && n <= 255)) {
+        update("#" + parts.map((n) => n.toString(16).padStart(2, "0")).join(""), rgbEl);
+      }
+    });
+
+    hslEl.addEventListener("input", () => {
+      const m = hslEl.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
+      if (!m) return;
+      const [, h, s, l] = m.map(Number);
+      // Use browser to convert: create a temp element
+      const tmp = document.createElement("div");
+      tmp.style.color = `hsl(${h}, ${s}%, ${l}%)`;
+      document.body.appendChild(tmp);
+      const computed = getComputedStyle(tmp).color;
+      tmp.remove();
+      const rgb = computed.match(/\d+/g);
+      if (rgb) update("#" + rgb.map((n) => (+n).toString(16).padStart(2, "0")).join(""), hslEl);
+    });
+
+    picker.addEventListener("input", () => update(picker.value, picker));
+
+    // Copy on click
+    for (const el of [hexEl, rgbEl, hslEl]) {
+      el.addEventListener("click", () => { el.select(); navigator.clipboard.writeText(el.value); });
+    }
+
+    update("#335eea");
+  </script>
+</Base>

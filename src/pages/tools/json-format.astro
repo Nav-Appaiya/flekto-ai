@@ -1,0 +1,60 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="JSON formatter" description="Plak JSON en krijg het netjes geformatteerd en gevalideerd, volledig in je browser.">
+  <h1>🗂️ JSON formatter</h1>
+  <p class="lead">Plak rauwe JSON en zie het direct netjes geformatteerd. Alles blijft in je browser.</p>
+
+  <div class="layout">
+    <div>
+      <label class="muted label">Input</label>
+      <textarea id="input" rows="16" placeholder='{"naam":"test","items":[1,2,3]}'></textarea>
+    </div>
+    <div>
+      <div class="toolbar">
+        <span class="muted label">Output</span>
+        <span id="status" class="muted"></span>
+        <button id="copy" class="btn ghost" type="button">Kopiëren</button>
+      </div>
+      <pre id="output"><code></code></pre>
+    </div>
+  </div>
+
+  <style>
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 48rem) { .layout { grid-template-columns: 1fr; } }
+    .label { display: block; font-size: .85rem; margin-bottom: .3rem; }
+    .toolbar { display: flex; align-items: center; gap: .75rem; margin-bottom: .3rem; }
+    .toolbar .label { margin: 0; }
+    .toolbar .btn { padding: .35rem .8rem; font-size: .85rem; }
+    textarea { width: 100%; font: .9rem/1.5 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; }
+    pre { margin: 0; max-height: 70vh; font-size: .85rem; }
+    #status { font-size: .85rem; }
+    .ok { color: var(--ok); }
+  </style>
+
+  <script>
+    const input = document.getElementById("input") as HTMLTextAreaElement;
+    const output = document.querySelector("#output code")!;
+    const status = document.getElementById("status")!;
+
+    function format() {
+      const raw = input.value.trim();
+      if (!raw) { output.textContent = ""; status.textContent = ""; return; }
+      try {
+        const obj = JSON.parse(raw);
+        const pretty = JSON.stringify(obj, null, 2);
+        output.textContent = pretty;
+        status.textContent = "✓ Geldig";
+        status.className = "ok";
+      } catch (e: any) {
+        output.textContent = raw;
+        status.textContent = `✗ ${e.message}`;
+        status.className = "error";
+      }
+    }
+
+    input.addEventListener("input", format);
+    document.getElementById("copy")!.addEventListener("click", () => navigator.clipboard.writeText(output.textContent || ""));
+  </script>
+</Base>

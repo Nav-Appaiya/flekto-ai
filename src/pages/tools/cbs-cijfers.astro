@@ -1,0 +1,70 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="CBS Cijfers" description="Bevolkings-, economie- en wooncijfers per gemeente via het CBS. Rechtstreeks uit de open CBS-database.">
+  <h1>📈 CBS Cijfers</h1>
+  <p class="lead">Zoek bevolkingscijfers per gemeente op via de open data van het CBS.</p>
+
+  <form id="form" class="card search">
+    <input id="query" type="text" placeholder="Amsterdam, Rotterdam, Utrecht…" autofocus />
+    <button class="btn" type="submit">Zoeken</button>
+  </form>
+
+  <div id="result" class="result"></div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://opendata.cbs.nl/" target="_blank" rel="noopener">CBS Open Data (StatLine)</a> — dataset 03759ned (bevolking per gemeente)</p>
+
+  <style>
+    .search { display: flex; gap: .75rem; max-width: 32rem; align-items: center; }
+    .search input { flex: 1; }
+    .result { margin-top: 1.5rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+    .gem { display: grid; gap: .3rem; }
+    .gem strong { font-size: 1.05rem; }
+    .gem dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .75rem; margin: 0; font-size: .9rem; }
+    .gem dt { color: var(--muted); }
+    .gem dd { margin: 0; font-weight: 600; }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const form = document.getElementById("form") as HTMLFormElement;
+    const query = document.getElementById("query") as HTMLInputElement;
+    const result = document.getElementById("result")!;
+    const err = document.getElementById("err")!;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const q = query.value.trim();
+      if (!q) return;
+      err.textContent = "";
+      result.innerHTML = '<p class="muted">Zoeken…</p>';
+
+      try {
+        const filter = `substringof('${q}',RegioS)`;
+        const res = await fetch(`/api/cbs?$filter=${encodeURIComponent(filter)}&$top=10`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        if (!data.length) { result.innerHTML = '<p class="muted">Geen resultaten gevonden.</p>'; return; }
+
+        result.innerHTML = data.map((row: any) => {
+          const fields: [string, string][] = [
+            ["Perioden", "Periode"],
+            ["TotaleBevolking_1", "Totale bevolking"],
+            ["Mannen_2", "Mannen"],
+            ["Vrouwen_3", "Vrouwen"],
+            ["BevolkingsdichtheidInwonersPerKm2_33", "Inwoners/km²"],
+          ];
+          const dl = fields
+            .filter(([k]) => row[k] != null)
+            .map(([k, label]) => `<dt>${label}</dt><dd>${row[k]}</dd>`)
+            .join("");
+          return `<div class="card gem"><strong>${(row.RegioS || "").trim()}</strong><dl>${dl}</dl></div>`;
+        }).join("");
+      } catch (e: any) {
+        err.textContent = e.message || "Kon CBS-data niet ophalen.";
+        result.innerHTML = "";
+      }
+    });
+  </script>
+</Base>

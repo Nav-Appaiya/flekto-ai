@@ -1,0 +1,85 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Waterstanden" description="Actuele waterstanden van Rijkswaterstaat-meetpunten door heel Nederland.">
+  <h1>🌊 Waterstanden</h1>
+  <p class="lead">Live waterhoogtes van Rijkswaterstaat-meetpunten. Selecteer een station voor de laatste meting.</p>
+
+  <div class="card picker">
+    <label>Meetpunt
+      <select id="station">
+        <option value="HOEKVHLD">Hoek van Holland</option>
+        <option value="ROTMDRT">Rotterdam</option>
+        <option value="DENHDR">Den Helder</option>
+        <option value="VLISSGN">Vlissingen</option>
+        <option value="IJMDMNTHVN">IJmuiden</option>
+        <option value="SCHEVNGN">Scheveningen</option>
+        <option value="HARVT10">Harlingen</option>
+        <option value="DELFZL">Delfzijl</option>
+        <option value="TERNZN">Terneuzen</option>
+        <option value="DORDT">Dordrecht</option>
+      </select>
+    </label>
+    <button id="fetch" class="btn" type="button">Ophalen</button>
+  </div>
+
+  <div id="result" class="card result" hidden></div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://waterwebservices.rijkswaterstaat.nl/" target="_blank" rel="noopener">Rijkswaterstaat Waterwebservices</a> (data.overheid.nl)</p>
+
+  <style>
+    .picker { display: flex; gap: .75rem; max-width: 28rem; align-items: end; }
+    .picker label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); flex: 1; }
+    .result { max-width: 32rem; margin-top: 1rem; }
+    .result dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem .75rem; margin: 0; }
+    .result dt { color: var(--muted); font-size: .9rem; }
+    .result dd { margin: 0; font-weight: 600; }
+    .big { font-size: 2rem; color: var(--accent-ink); margin: 0 0 .5rem; }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const station = document.getElementById("station") as HTMLSelectElement;
+    const result = document.getElementById("result")!;
+    const err = document.getElementById("err")!;
+
+    async function load() {
+      err.textContent = "";
+      result.hidden = true;
+      const code = station.value;
+      const label = station.options[station.selectedIndex].text;
+
+      try {
+        const res = await fetch(`/api/water?action=live&station=${code}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        const waarnemingen = data.WaarnemingenLijst?.[0]?.MetingenLijst || [];
+        const latest = waarnemingen.at(-1);
+
+        if (!latest) {
+          result.innerHTML = `<p class="muted">Geen recente meting voor ${label}.</p>`;
+          result.hidden = false;
+          return;
+        }
+
+        const waarde = latest.Meetwaarde?.Waarde_Numeriek;
+        const tijd = latest.Tijdstip ? new Date(latest.Tijdstip).toLocaleString("nl-NL") : "onbekend";
+
+        result.innerHTML = `
+          <p class="big">${waarde != null ? `${waarde} cm` : "—"}</p>
+          <dl>
+            <dt>Meetpunt</dt><dd>${label}</dd>
+            <dt>Tijdstip</dt><dd>${tijd}</dd>
+            <dt>Grootheid</dt><dd>Waterhoogte t.o.v. NAP</dd>
+          </dl>`;
+        result.hidden = false;
+      } catch (e: any) {
+        err.textContent = e.message || "Kon waterstanden niet ophalen.";
+      }
+    }
+
+    document.getElementById("fetch")!.addEventListener("click", load);
+    load();
+  </script>
+</Base>

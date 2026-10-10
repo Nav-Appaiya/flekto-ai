@@ -13,51 +13,103 @@ const { title, description = "", noindex = false } = Astro.props;
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" />
+    <script is:inline>
+      // Apply theme before first paint to prevent flash
+      (function() {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+        } catch(e) {}
+      })();
+    </script>
     <style is:global>
-      /* Same look as the main flekto.nl site: HK Grotesk (Hanken Grotesk is its free successor), blue accent, navy text. */
       :root {
-        --bg: #ffffff; --alt: #f9fbfd; --fg: #161c2d; --muted: #506690; --line: #e3ebf6; --card: #ffffff;
-        --accent: #335eea; --accent-ink: #335eea; --accent-soft: rgba(51, 94, 234, .1); --ok: #42ba96;
-        --bar: #869ab8; --bad: #df4759; --shadow: 0 8px 24px rgba(22, 28, 45, .1);
+        --bg: #ffffff; --alt: #f5f7fb; --fg: #161c2d; --muted: #506690; --line: #e3ebf6; --card: #ffffff;
+        --accent: #335eea; --accent-ink: #335eea; --accent-soft: rgba(51, 94, 234, .08); --ok: #42ba96;
+        --bar: #869ab8; --bad: #df4759;
+        --shadow: 0 4px 20px rgba(22, 28, 45, .06);
+        --shadow-hover: 0 8px 30px rgba(22, 28, 45, .12);
+        --radius: 10px;
         color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #161c2d; --alt: #1b2236; --fg: #e9eef7; --muted: #9aaccc; --line: #2b3550; --card: #1e2639;
-                --accent: #335eea; --accent-ink: #8aa4ff; --accent-soft: rgba(51, 94, 234, .2); --ok: #42ba96;
-                --bar: #55658a; --bad: #ff7a8a; --shadow: 0 8px 24px rgba(0, 0, 0, .35); color-scheme: dark; }
+        :root:not([data-theme="light"]) {
+          --bg: #0f1219; --alt: #161c2d; --fg: #e4e9f2; --muted: #8a9bc0; --line: #252e42; --card: #1a2035;
+          --accent: #335eea; --accent-ink: #7ea0ff; --accent-soft: rgba(51, 94, 234, .15); --ok: #42ba96;
+          --bar: #55658a; --bad: #ff7a8a;
+          --shadow: 0 4px 20px rgba(0, 0, 0, .2);
+          --shadow-hover: 0 8px 30px rgba(0, 0, 0, .35);
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1219; --alt: #161c2d; --fg: #e4e9f2; --muted: #8a9bc0; --line: #252e42; --card: #1a2035;
+        --accent: #335eea; --accent-ink: #7ea0ff; --accent-soft: rgba(51, 94, 234, .15); --ok: #42ba96;
+        --bar: #55658a; --bad: #ff7a8a;
+        --shadow: 0 4px 20px rgba(0, 0, 0, .2);
+        --shadow-hover: 0 8px 30px rgba(0, 0, 0, .35);
+        color-scheme: dark;
       }
       * { box-sizing: border-box; }
       [hidden] { display: none !important; }
-      body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 "Hanken Grotesk", "HKGroteskPro", system-ui, -apple-system, sans-serif; }
-      .wrap { max-width: 64rem; margin: 0 auto; padding: 0 16px; }
-      header { border-bottom: 1px solid var(--line); background: var(--bg); }
-      header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 5rem; }
-      header img { height: 34px; width: auto; display: block; }
-      header nav { display: flex; gap: 1.8rem; }
-      header nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 "Hanken Grotesk", "HKGroteskPro", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+      .wrap { max-width: 68rem; margin: 0 auto; padding: 0 16px; }
+
+      /* Header */
+      header { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+      header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 4.5rem; }
+      header img { height: 30px; width: auto; display: block; }
+      header nav { display: flex; align-items: center; gap: 1.5rem; }
+      header nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: .95rem; transition: color .15s; }
       header nav a:hover, header nav a[aria-current] { color: var(--accent-ink); }
-      main.wrap { padding-top: 3.5rem; padding-bottom: 5rem; }
-      footer { background: var(--alt); border-top: 1px solid var(--line); color: var(--muted); font-size: .95rem; padding: 2.5rem 0; }
+
+      /* Dark mode toggle */
+      .theme-toggle { background: none; border: 1px solid var(--line); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; padding: 0; transition: border-color .15s, background .15s; }
+      .theme-toggle:hover { border-color: var(--accent); background: var(--accent-soft); }
+      .theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .theme-toggle:hover svg { stroke: var(--accent-ink); }
+      .theme-toggle .icon-moon { display: none; }
+      :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+      :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: none; }
+        :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: block; }
+      }
+
+      /* Main */
+      main.wrap { padding-top: 3rem; padding-bottom: 5rem; }
+
+      /* Footer */
+      footer { background: var(--alt); border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; padding: 2.5rem 0; }
       footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; }
-      footer a { color: inherit; }
-      h1, h2, h3 { font-weight: 400; color: var(--fg); }
-      h1 { font-size: clamp(2rem, 5vw, 2.6rem); line-height: 1.2; margin: 0 0 1rem; }
-      h2 { font-size: 1.6rem; line-height: 1.3; margin-top: 3rem; }
+      footer a { color: inherit; text-decoration: none; }
+      footer a:hover { color: var(--accent-ink); }
+
+      /* Typography */
+      h1, h2, h3 { font-weight: 700; color: var(--fg); }
+      h1 { font-size: clamp(2rem, 5vw, 2.8rem); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -0.02em; }
+      h2 { font-size: 1.5rem; line-height: 1.3; margin-top: 3rem; }
       .hl { color: var(--accent-ink); }
       a { color: var(--accent-ink); }
-      .lead { font-size: 1.15rem; color: var(--muted); max-width: 42rem; }
+      .lead { font-size: 1.15rem; color: var(--muted); max-width: 44rem; line-height: 1.7; }
       .muted { color: var(--muted); }
-      .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 6px rgba(22, 28, 45, .04); }
+
+      /* Card */
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s, transform .2s; }
+
+      /* Code */
       code, pre { font-family: ui-monospace, Menlo, monospace; background: var(--alt); border: 1px solid var(--line); border-radius: 6px; }
       code { padding: .1em .35em; font-size: .9em; }
       pre { padding: 1rem; overflow-x: auto; }
       pre code { border: 0; padding: 0; }
+
+      /* Forms */
       input, select, button, textarea { font: inherit; color: inherit; }
-      input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .6rem .8rem; min-width: 0; }
-      input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .btn { white-space: nowrap; background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: .7rem 1.2rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s; }
-      .btn:hover { transform: translateY(-1px); }
+      input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .6rem .8rem; min-width: 0; transition: border-color .15s; }
+      input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .btn { white-space: nowrap; background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: .65rem 1.4rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; }
+      .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
       .btn:disabled { opacity: .5; cursor: default; transform: none; }
       .btn.ghost { background: var(--accent-soft); color: var(--accent-ink); box-shadow: none; }
       .error { color: var(--bad); }
@@ -71,6 +123,10 @@ const { title, description = "", noindex = false } = Astro.props;
           <a href="/">Home</a>
           <a href="/tools/" aria-current={Astro.url.pathname.startsWith("/tools") ? "page" : undefined}>Tools</a>
           <a href="mailto:info@flekto.nl">Contact</a>
+          <button class="theme-toggle" type="button" aria-label="Wissel tussen licht en donker thema">
+            <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+          </button>
         </nav>
       </div>
     </header>
@@ -81,5 +137,15 @@ const { title, description = "", noindex = false } = Astro.props;
         <span><a href="mailto:info@flekto.nl">info@flekto.nl</a> · <a href="tel:0103075430">(010) 307 5430</a></span>
       </div>
     </footer>
+    <script is:inline>
+      document.querySelector(".theme-toggle").addEventListener("click", function() {
+        var html = document.documentElement;
+        var isDark = html.dataset.theme === "dark" ||
+          (!html.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var next = isDark ? "light" : "dark";
+        html.dataset.theme = next;
+        try { localStorage.setItem("theme", next); } catch(e) {}
+      });
+    </script>
   </body>
 </html>

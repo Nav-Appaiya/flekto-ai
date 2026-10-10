@@ -1,0 +1,57 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Tekst-diff" description="Vergelijk twee stukken tekst en zie precies wat er verschilt. Volledig in je browser.">
+  <h1>📊 Tekst-diff</h1>
+  <p class="lead">Plak twee versies van een tekst en bekijk de verschillen per regel.</p>
+
+  <div class="layout">
+    <div>
+      <label class="muted sm">Origineel</label>
+      <textarea id="a" rows="14" placeholder="Plak hier de oorspronkelijke tekst…"></textarea>
+    </div>
+    <div>
+      <label class="muted sm">Gewijzigd</label>
+      <textarea id="b" rows="14" placeholder="Plak hier de nieuwe versie…"></textarea>
+    </div>
+  </div>
+  <div id="diff" class="diff card"></div>
+
+  <style>
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 48rem) { .layout { grid-template-columns: 1fr; } }
+    .sm { font-size: .85rem; display: block; margin-bottom: .3rem; }
+    textarea { width: 100%; font: .9rem/1.5 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; }
+    .diff { font: .85rem/1.7 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; min-height: 2rem; }
+    .diff .add { background: rgba(66, 186, 150, .15); color: var(--ok); }
+    .diff .del { background: rgba(223, 71, 89, .12); color: var(--bad); text-decoration: line-through; }
+    .diff .ctx { color: var(--muted); }
+  </style>
+
+  <script>
+    const a = document.getElementById("a") as HTMLTextAreaElement;
+    const b = document.getElementById("b") as HTMLTextAreaElement;
+    const diff = document.getElementById("diff")!;
+
+    function compute() {
+      const la = a.value.split("\n"), lb = b.value.split("\n");
+      if (!a.value && !b.value) { diff.innerHTML = '<span class="ctx">Voer tekst in aan beide kanten.</span>'; return; }
+      // Simple line-by-line diff (ponytail: LCS is overkill here)
+      const lines: string[] = [];
+      const max = Math.max(la.length, lb.length);
+      for (let i = 0; i < max; i++) {
+        const al = la[i], bl = lb[i];
+        if (al === bl) lines.push(`<span class="ctx">  ${(al ?? "").replace(/</g, "&lt;")}</span>`);
+        else {
+          if (al !== undefined) lines.push(`<span class="del">- ${al.replace(/</g, "&lt;")}</span>`);
+          if (bl !== undefined) lines.push(`<span class="add">+ ${bl.replace(/</g, "&lt;")}</span>`);
+        }
+      }
+      diff.innerHTML = lines.join("\n");
+    }
+
+    a.addEventListener("input", compute);
+    b.addEventListener("input", compute);
+    compute();
+  </script>
+</Base>

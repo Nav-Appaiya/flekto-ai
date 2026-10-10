@@ -1,0 +1,74 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Weer vandaag" description="Het actuele weer per weerstation, van Buienradar open data. Temperatuur, wind en neerslag.">
+  <h1>🌤️ Weer vandaag</h1>
+  <p class="lead">Actuele weergegevens van alle weerstations in Nederland, via Buienradar open data.</p>
+
+  <div class="card filter-bar">
+    <label>Filter <input id="filter" type="text" placeholder="Regio of station…" /></label>
+  </div>
+
+  <div id="list" class="list">
+    <p class="muted">Weerdata ophalen…</p>
+  </div>
+  <div id="forecast" class="card forecast" hidden></div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://www.buienradar.nl/" target="_blank" rel="noopener">Buienradar</a> (open data, CC BY-SA)</p>
+
+  <style>
+    .filter-bar { max-width: 24rem; margin-bottom: 1.5rem; }
+    .filter-bar label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+    .list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+    .station { display: grid; gap: .3rem; }
+    .station strong { font-size: 1rem; }
+    .station .temp { font-size: 1.8rem; font-weight: 700; color: var(--accent-ink); line-height: 1; }
+    .station .details { font-size: .85rem; color: var(--muted); display: grid; gap: .1rem; }
+    .forecast { margin-top: 1.5rem; font-size: .95rem; line-height: 1.7; }
+    .forecast h2 { margin-top: 0; }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const list = document.getElementById("list")!;
+    const filter = document.getElementById("filter") as HTMLInputElement;
+    const forecast = document.getElementById("forecast")!;
+    const err = document.getElementById("err")!;
+
+    let stations: any[] = [];
+
+    function render() {
+      const q = filter.value.toLowerCase();
+      const filtered = q ? stations.filter((s) =>
+        s.station.toLowerCase().includes(q) || (s.regio || "").toLowerCase().includes(q)
+      ) : stations;
+
+      if (!filtered.length) { list.innerHTML = '<p class="muted">Geen stations gevonden.</p>'; return; }
+
+      list.innerHTML = filtered.map((s: any) => `
+        <div class="card station">
+          <strong>${s.station}</strong>
+          <span class="temp">${s.temp != null ? `${s.temp}°C` : "—"}</span>
+          <div class="details">
+            ${s.beschrijving ? `<span>${s.beschrijving}</span>` : ""}
+            ${s.wind != null ? `<span>Wind: ${s.wind} Bft ${s.windrichting || ""}</span>` : ""}
+            ${s.luchtvochtigheid != null ? `<span>Luchtvochtigheid: ${s.luchtvochtigheid}%</span>` : ""}
+            ${s.gevoelstemp != null ? `<span>Gevoelstemperatuur: ${s.gevoelstemp}°C</span>` : ""}
+          </div>
+        </div>`).join("");
+    }
+
+    fetch("/api/weer").then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      stations = data.stations || [];
+      render();
+      if (data.verwachting) {
+        forecast.innerHTML = `<h2>Verwachting</h2><p>${data.verwachting}</p>`;
+        forecast.hidden = false;
+      }
+    }).catch((e) => { err.textContent = e.message || "Kon het weer niet ophalen."; });
+
+    filter.addEventListener("input", render);
+  </script>
+</Base>

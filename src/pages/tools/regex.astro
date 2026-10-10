@@ -1,0 +1,63 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Regex tester" description="Test reguliere expressies live tegen tekst en bekijk matches direct in je browser.">
+  <h1>🔍 Regex tester</h1>
+  <p class="lead">Typ een regex, plak je tekst en bekijk matches live. Alles in je browser.</p>
+
+  <div class="card tester">
+    <div class="row">
+      <span class="slash">/</span>
+      <input id="pattern" type="text" placeholder="[a-z]+" value="\b\w+@\w+\.\w+\b" />
+      <span class="slash">/</span>
+      <input id="flags" type="text" value="gi" size="3" />
+    </div>
+    <label class="muted sm">Tekst</label>
+    <textarea id="text" rows="8">Stuur een mail naar test@example.com of info@flekto.nl voor meer informatie.</textarea>
+    <div class="meta">
+      <span id="count" class="muted"></span>
+    </div>
+    <div id="result" class="result"></div>
+  </div>
+
+  <style>
+    .tester { max-width: 48rem; display: grid; gap: .8rem; }
+    .row { display: flex; align-items: center; gap: .3rem; }
+    .slash { font: 1.2rem ui-monospace, Menlo, monospace; color: var(--muted); }
+    .row input { font-family: ui-monospace, Menlo, monospace; }
+    .row input:first-of-type { flex: 1; }
+    .sm { font-size: .85rem; margin-bottom: -.4rem; }
+    textarea { width: 100%; font: .95rem/1.6 inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; }
+    .meta { font-size: .85rem; }
+    .result { font: .95rem/1.8 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; background: var(--alt); border-radius: 8px; padding: 1rem; min-height: 3rem; border: 1px solid var(--line); }
+    .result mark { background: var(--accent-soft); color: var(--accent-ink); border-radius: 3px; padding: .05em .15em; }
+  </style>
+
+  <script>
+    const pattern = document.getElementById("pattern") as HTMLInputElement;
+    const flags = document.getElementById("flags") as HTMLInputElement;
+    const text = document.getElementById("text") as HTMLTextAreaElement;
+    const result = document.getElementById("result")!;
+    const count = document.getElementById("count")!;
+
+    function run() {
+      const src = text.value;
+      if (!pattern.value) { result.textContent = src; count.textContent = ""; return; }
+      try {
+        const re = new RegExp(pattern.value, flags.value);
+        let n = 0;
+        const html = src.replace(re, (m) => { n++; return `<mark>${m.replace(/</g, "&lt;")}</mark>`; });
+        result.innerHTML = html || src.replace(/</g, "&lt;");
+        count.textContent = `${n} match${n !== 1 ? "es" : ""}`;
+        count.className = n ? "ok" : "muted";
+      } catch (e: any) {
+        result.textContent = src;
+        count.textContent = e.message;
+        count.className = "error";
+      }
+    }
+
+    for (const el of [pattern, flags, text]) el.addEventListener("input", run);
+    run();
+  </script>
+</Base>

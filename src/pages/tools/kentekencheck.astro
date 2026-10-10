@@ -1,0 +1,69 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="RDW Kentekencheck" description="Voer een kenteken in en bekijk voertuiggegevens uit de open RDW-database. Gratis en zonder account.">
+  <h1>🚗 RDW Kentekencheck</h1>
+  <p class="lead">Zoek voertuiginformatie op via de open data van de RDW. Merk, brandstof, APK-verval en meer.</p>
+
+  <form id="form" class="card search">
+    <input id="kenteken" type="text" placeholder="AB-123-C" maxlength="10" autofocus />
+    <button class="btn" type="submit">Opzoeken</button>
+  </form>
+
+  <div id="result" class="card result" hidden></div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://opendata.rdw.nl/" target="_blank" rel="noopener">RDW Open Data</a> (data.overheid.nl)</p>
+
+  <style>
+    .search { display: flex; gap: .75rem; max-width: 28rem; align-items: center; }
+    .search input { flex: 1; font: 1.1rem ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .1em; }
+    .result { max-width: 36rem; margin-top: 1rem; }
+    .result dl { display: grid; grid-template-columns: 11rem 1fr; gap: .3rem .75rem; margin: 0; }
+    .result dt { color: var(--muted); font-size: .9rem; }
+    .result dd { margin: 0; font-weight: 600; }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const form = document.getElementById("form") as HTMLFormElement;
+    const input = document.getElementById("kenteken") as HTMLInputElement;
+    const result = document.getElementById("result")!;
+    const err = document.getElementById("err")!;
+
+    const FIELDS: [string, string][] = [
+      ["merk", "Merk"], ["handelsbenaming", "Model"], ["kleur", "Kleur"],
+      ["brandstof_omschrijving", "Brandstof"], ["eerste_kleur", "Kleur"],
+      ["datum_eerste_toelating", "Eerste toelating"], ["vervaldatum_apk", "APK verloopt"],
+      ["bruto_bpm", "BPM"], ["catalogusprijs", "Catalogusprijs"],
+      ["aantal_zitplaatsen", "Zitplaatsen"], ["aantal_cilinders", "Cilinders"],
+      ["cilinderinhoud", "Cilinderinhoud (cc)"], ["massa_ledig_voertuig", "Leeg gewicht (kg)"],
+      ["toegestane_maximum_massa_voertuig", "Max. massa (kg)"],
+      ["zuinigheidslabel", "Energielabel"], ["tellerstandoordeel", "Tellerstand"],
+    ];
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const k = input.value.trim();
+      if (!k) return;
+      err.textContent = "";
+      result.hidden = true;
+
+      try {
+        const res = await fetch(`/api/rdw?kenteken=${encodeURIComponent(k)}`);
+        const data = await res.json();
+        if (!res.ok) { err.textContent = data.error; return; }
+
+        const dl = document.createElement("dl");
+        dl.innerHTML = `<dt>Kenteken</dt><dd>${(data.kenteken || k).toUpperCase()}</dd>`;
+        for (const [key, label] of FIELDS) {
+          const val = data[key];
+          if (val) dl.innerHTML += `<dt>${label}</dt><dd>${val}</dd>`;
+        }
+        result.replaceChildren(dl);
+        result.hidden = false;
+      } catch {
+        err.textContent = "Kon de RDW niet bereiken. Probeer het zo nog eens.";
+      }
+    });
+  </script>
+</Base>

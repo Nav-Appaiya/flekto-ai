@@ -1,0 +1,49 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Terugroepacties" description="Recente productterugroepingen en voedselveiligheidswaarschuwingen van de Nederlandse overheid.">
+  <h1>⚠️ Terugroepacties</h1>
+  <p class="lead">Recente product-terugroepingen en -waarschuwingen van de overheid. Check of jouw product erbij staat.</p>
+
+  <div id="list" class="list">
+    <p class="muted">Terugroepacties ophalen…</p>
+  </div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://opendata.rijksoverheid.nl/" target="_blank" rel="noopener">Rijksoverheid Open Data</a></p>
+
+  <style>
+    .list { display: grid; gap: 1rem; margin-top: 1.5rem; }
+    .recall { display: grid; gap: .3rem; }
+    .recall strong { font-size: 1.05rem; }
+    .recall .meta { font-size: .85rem; color: var(--muted); display: flex; gap: 1rem; flex-wrap: wrap; }
+    .recall .desc { font-size: .93rem; line-height: 1.6; }
+    .recall a { font-size: .9rem; }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const list = document.getElementById("list")!;
+    const err = document.getElementById("err")!;
+
+    fetch("/api/recalls").then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const items = Array.isArray(data) ? data : [];
+      if (!items.length) { list.innerHTML = '<p class="muted">Geen recente terugroepacties gevonden.</p>'; return; }
+
+      list.innerHTML = items.map((item: any) => {
+        const title = item.title || item.titel || "Onbekend product";
+        const date = item.lastmodified || item.date || "";
+        const desc = item.introduction || item.samenvatting || "";
+        const url = item.canonicalurl || item.url || "";
+        const fmtDate = date ? new Date(date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }) : "";
+        return `<div class="card recall">
+          <strong>${title}</strong>
+          <div class="meta">${fmtDate ? `<span>📅 ${fmtDate}</span>` : ""}</div>
+          ${desc ? `<p class="desc">${desc}</p>` : ""}
+          ${url ? `<a href="${url}" target="_blank" rel="noopener">Meer informatie →</a>` : ""}
+        </div>`;
+      }).join("");
+    }).catch((e) => { err.textContent = e.message || "Kon de terugroepacties niet ophalen."; });
+  </script>
+</Base>

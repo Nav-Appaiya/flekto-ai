@@ -28,4 +28,32 @@ export const TOOLS = [
     blurb: "Een wegwerp-e-mailadres waarvan je de mails live in je browser ziet. Geen spam in je echte inbox." },
   { href: "/tools/mail-antwoordbot/", name: "Mail-antwoordbot", emoji: "🤖",
     blurb: "Mail de bot en krijg een AI-antwoord terug, plus een check van SPF, DKIM, DMARC en spamsignalen." },
+
+  // — Utility tools —
+  { href: "/tools/wachtwoord/", name: "Wachtwoord generator", emoji: "🔐",
+    blurb: "Sterke, willekeurige wachtwoorden met aanpasbare lengte en tekens." },
+  { href: "/tools/json-format/", name: "JSON formatter", emoji: "🗂️",
+    blurb: "Plak JSON en krijg het netjes geformatteerd, gevalideerd en ingekleurd." },
+  { href: "/tools/kleuren/", name: "Kleurenconverter", emoji: "🎨",
+    blurb: "Reken HEX, RGB en HSL naar elkaar om. Met live preview en kopieerknop." },
+  { href: "/tools/regex/", name: "Regex tester", emoji: "🔍",
+    blurb: "Test je reguliere expressie live tegen een stuk tekst en bekijk matches." },
+  { href: "/tools/lorem-ipsum/", name: "Lorem ipsum generator", emoji: "✍️",
+    blurb: "Genereer dummy-tekst per woord, zin of alinea. Direct kopiëren." },
+  { href: "/tools/tekst-diff/", name: "Tekst-diff", emoji: "📊",
+    blurb: "Vergelijk twee stukken tekst en zie in een oogopslag wat er verschilt." },
+
+  // — Overheid open data tools —
+  { href: "/tools/kentekencheck/", name: "RDW Kentekencheck", emoji: "🚗",
+    blurb: "Voer een kenteken in en bekijk voertuiggegevens uit de open RDW-database." },
+  { href: "/tools/schoolvakanties/", name: "Schoolvakanties", emoji: "📅",
+    blurb: "Wanneer is de volgende schoolvakantie? Per regio, rechtstreeks van Rijksoverheid." },
+  { href: "/tools/terugroepacties/", name: "Terugroepacties", emoji: "⚠️",
+    blurb: "Recente productterugroepingen en voedselveiligheidswaarschuwingen van de overheid." },
+  { href: "/tools/cbs-cijfers/", name: "CBS Cijfers", emoji: "📈",
+    blurb: "Bevolkings-, economie- en wooncijfers per gemeente via het CBS." },
+  { href: "/tools/waterstanden/", name: "Waterstanden", emoji: "🌊",
+    blurb: "Actuele waterstanden van Rijkswaterstaat-meetpunten door heel Nederland." },
+  { href: "/tools/weer/", name: "Weer vandaag", emoji: "🌤️",
+    blurb: "Het actuele weer en verwachting per weerstation, van Buienradar open data." },
 ];

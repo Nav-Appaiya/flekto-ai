@@ -1,0 +1,84 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Schoolvakanties" description="Wanneer is de volgende schoolvakantie? Per regio, rechtstreeks van Rijksoverheid open data.">
+  <h1>📅 Schoolvakanties</h1>
+  <p class="lead">Bekijk de schoolvakanties per regio, rechtstreeks van de Rijksoverheid.</p>
+
+  <div class="card picker">
+    <label>Regio
+      <select id="regio">
+        <option value="noord">Noord</option>
+        <option value="midden">Midden</option>
+        <option value="zuid">Zuid</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="list" class="list">
+    <p class="muted">Vakanties ophalen…</p>
+  </div>
+  <p id="err" class="error" aria-live="polite"></p>
+  <p class="muted source">Bron: <a href="https://opendata.rijksoverheid.nl/" target="_blank" rel="noopener">Rijksoverheid Open Data</a></p>
+
+  <style>
+    .picker { max-width: 20rem; display: flex; gap: .75rem; align-items: end; margin-bottom: 1.5rem; }
+    .picker label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); flex: 1; }
+    .list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+    .vak { display: flex; flex-direction: column; gap: .25rem; }
+    .vak strong { font-size: 1.05rem; }
+    .vak .dates { font-size: .9rem; color: var(--muted); }
+    .vak .school-year { font-size: .8rem; color: var(--bar); }
+    .active { border-color: var(--ok); }
+    .source { font-size: .8rem; margin-top: 2rem; }
+  </style>
+
+  <script>
+    const regio = document.getElementById("regio") as HTMLSelectElement;
+    const list = document.getElementById("list")!;
+    const err = document.getElementById("err")!;
+
+    let allData: any[] = [];
+
+    function fmt(d: string) {
+      try { return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }); }
+      catch { return d; }
+    }
+
+    function render() {
+      const r = regio.value.toLowerCase();
+      const now = new Date();
+      const items: string[] = [];
+
+      for (const year of allData) {
+        const vakanties = year.content || year.vacations || [];
+        for (const v of vakanties) {
+          const regions = v.regions || [];
+          for (const reg of regions) {
+            if (!reg.region?.toLowerCase().includes(r)) continue;
+            const start = reg.startdate || v.startdate;
+            const end = reg.enddate || v.enddate;
+            if (!start) continue;
+            const isActive = now >= new Date(start) && now <= new Date(end);
+            items.push(`<div class="card vak${isActive ? " active" : ""}">
+              <strong>${v.type || v.compulsorydates || "Vakantie"}</strong>
+              <span class="dates">${fmt(start)} – ${fmt(end)}</span>
+              <span class="school-year">${year.schoolyear || year.title || ""}</span>
+              ${isActive ? '<span style="color:var(--ok);font-size:.85rem">✓ Nu vakantie!</span>' : ""}
+            </div>`);
+          }
+        }
+      }
+      list.innerHTML = items.length ? items.join("") : '<p class="muted">Geen vakanties gevonden voor deze regio.</p>';
+    }
+
+    fetch("/api/vakanties").then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      allData = Array.isArray(data) ? data : [];
+      render();
+    }).catch((e) => { err.textContent = e.message || "Kon de vakanties niet ophalen."; });
+
+    regio.addEventListener("change", render);
+  </script>
+</Base>

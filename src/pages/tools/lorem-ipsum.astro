@@ -1,0 +1,64 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Lorem ipsum generator" description="Genereer lorem ipsum dummy-tekst per alinea, zin of woord. Direct kopiëren.">
+  <h1>✍️ Lorem ipsum generator</h1>
+  <p class="lead">Genereer dummy-tekst voor je mockups en ontwerpen.</p>
+
+  <div class="card gen">
+    <div class="row">
+      <label>Aantal <input id="count" type="number" min="1" max="100" value="3" /></label>
+      <label>Eenheid
+        <select id="unit">
+          <option value="paragraphs">Alinea's</option>
+          <option value="sentences">Zinnen</option>
+          <option value="words">Woorden</option>
+        </select>
+      </label>
+      <button id="copy" class="btn" type="button">Kopiëren</button>
+    </div>
+    <div id="output" class="output"></div>
+  </div>
+
+  <style>
+    .gen { max-width: 48rem; display: grid; gap: 1rem; }
+    .row { display: flex; gap: .75rem; align-items: end; flex-wrap: wrap; }
+    .row label { display: grid; gap: .2rem; font-size: .85rem; color: var(--muted); }
+    .row input { width: 5rem; }
+    .output { font-size: .95rem; line-height: 1.7; color: var(--muted); }
+    .output p { margin: 0 0 1rem; }
+  </style>
+
+  <script>
+    const WORDS = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure in reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum".split(" ");
+
+    function pick() { return WORDS[Math.floor(Math.random() * WORDS.length)]; }
+    function sentence() {
+      const len = 8 + Math.floor(Math.random() * 12);
+      const words = Array.from({ length: len }, pick);
+      words[0] = words[0][0].toUpperCase() + words[0].slice(1);
+      return words.join(" ") + ".";
+    }
+    function paragraph() { return Array.from({ length: 4 + Math.floor(Math.random() * 4) }, sentence).join(" "); }
+
+    const count = document.getElementById("count") as HTMLInputElement;
+    const unit = document.getElementById("unit") as HTMLSelectElement;
+    const output = document.getElementById("output")!;
+
+    function generate() {
+      const n = Math.max(1, Math.min(100, +count.value));
+      if (unit.value === "words") {
+        output.innerHTML = `<p>${Array.from({ length: n }, pick).join(" ")}.</p>`;
+      } else if (unit.value === "sentences") {
+        output.innerHTML = `<p>${Array.from({ length: n }, sentence).join(" ")}</p>`;
+      } else {
+        output.innerHTML = Array.from({ length: n }, () => `<p>${paragraph()}</p>`).join("");
+      }
+    }
+
+    count.addEventListener("input", generate);
+    unit.addEventListener("change", generate);
+    document.getElementById("copy")!.addEventListener("click", () => navigator.clipboard.writeText(output.textContent || ""));
+    generate();
+  </script>
+</Base>
