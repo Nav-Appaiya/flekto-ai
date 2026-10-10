@@ -2,6 +2,7 @@
   "name": "flekto-nl",
   "type": "module",
   "private": true,
+  "version": "1.0.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

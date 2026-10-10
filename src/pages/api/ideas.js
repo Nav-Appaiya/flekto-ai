@@ -8,6 +8,6 @@ export async function GET({ url }) {
   const kind = url.searchParams.get("kind");
   if (!KINDS.includes(kind)) return json({ error: `kind moet ${KINDS.join(" of ")} zijn` }, 400);
   const data = await fetchSignals(kind);
-  if (!data.signals.length && kind === "dev") return json({ error: "Bronnen tijdelijk niet bereikbaar" }, 502);
+  if (!data.signals.length && kind === "dev") return json({ error: "De bronnen zijn even niet bereikbaar" }, 502);
   return json(data, 200, { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600" });
 }

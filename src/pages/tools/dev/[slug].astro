@@ -6,9 +6,9 @@ export const getStaticPaths = () => DEV_TOOLS.map((tool) => ({ params: { slug: t
 const { tool } = Astro.props;
 const others = DEV_TOOLS.filter((t) => t !== tool);
 ---
-<Base title={tool.name} description={`${tool.blurb} Gratis, zonder account, alles draait in je browser.`}>
+<Base title={tool.name} description={`${tool.blurb} Gratis en zonder account.`}>
   <h1>{tool.emoji} {tool.name}</h1>
-  <p class="lead">{tool.blurb} Alles draait lokaal in je browser; er wordt niets verstuurd.</p>
+  <p class="lead">{tool.blurb} Alles gebeurt in je eigen browser, er gaat niks naar mijn server.</p>
 
   <div class="card tool" data-slug={tool.slug}>
     <label for="input">Invoer</label>
@@ -20,14 +20,14 @@ const others = DEV_TOOLS.filter((t) => t !== tool);
     <pre id="output" aria-live="polite" tabindex="0"></pre>
   </div>
 
-  <h2>Meer developer tools</h2>
+  <h2>Andere <span class="hl">dev tools</span></h2>
   <ul class="others">
     {others.map((t) => <li><a href={`/tools/dev/${t.slug}/`}>{t.emoji} {t.name}</a></li>)}
   </ul>
 
   <style>
     .tool { display: grid; gap: .6rem; }
-    label { font-weight: 500; }
+    label { font-weight: 600; }
     textarea { font: .95rem/1.5 ui-monospace, Menlo, monospace; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; width: 100%; }
     textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .modes { display: flex; flex-wrap: wrap; gap: .5rem; }

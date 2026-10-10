@@ -3,12 +3,12 @@
 const { kind } = Astro.props;
 ---
 <div class="feed" data-kind={kind}>
-  <p class="toolbar"><span class="status muted">Trends laden…</span></p>
-  <h2>Ideeën van vandaag</h2>
+  <p class="toolbar"><span class="status muted">Even kijken wat er trending is…</span></p>
+  <h2>Ideeën van <span class="hl">vandaag</span></h2>
   <ol class="ideas today"></ol>
-  <h2 class="more-head" hidden>Nog meer ideeën</h2>
+  <h2 class="more-head" hidden>Nog <span class="hl">meer</span></h2>
   <ol class="ideas more"></ol>
-  <p><button type="button" class="btn next" disabled>✨ Geef me nieuwe ideeën</button></p>
+  <p><button type="button" class="btn next" disabled>Nog een paar ideeën</button></p>
   <p class="sources muted"></p>
 </div>
 
@@ -46,7 +46,7 @@ const { kind } = Astro.props;
       li.append(steps);
     }
     if (idea.inspiration.length) {
-      const why = el("p", "Trending: ", "why");
+      const why = el("p", "Gebaseerd op: ", "why");
       for (const s of idea.inspiration) {
         const link = Object.assign(el("a"), { href: s.url, target: "_blank", rel: "noopener" });
         link.append(el("span", s.source, "src"), s.title);
@@ -68,8 +68,8 @@ const { kind } = Astro.props;
       if (!res.ok) throw new Error(data.error);
       const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Amsterdam" }); // YYYY-MM-DD
       $(".today").replaceChildren(...generateIdeas(kind, data.signals, `${kind}:${today}`).map(card));
-      status.textContent = `${data.signals.length} trending posts en projecten van deze week geanalyseerd · ${new Date(data.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`;
-      $(".sources").textContent = `Bronnen: ${data.sources.map((s: { name: string; ok: boolean }) => (s.ok ? s.name : `${s.name} (nu niet bereikbaar)`)).join(", ")}.`;
+      status.textContent = `Gebaseerd op ${data.signals.length} posts en projecten van deze week · bijgewerkt om ${new Date(data.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`;
+      $(".sources").textContent = `Bronnen: ${data.sources.map((s: { name: string; ok: boolean }) => (s.ok ? s.name : `${s.name} (even niet bereikbaar)`)).join(", ")}.`;
       next.disabled = false;
       next.addEventListener("click", () => {
         $<HTMLElement>(".more-head").hidden = false;
@@ -77,6 +77,6 @@ const { kind } = Astro.props;
         $(".more").prepend(...batch);
         batch[0]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
-    }).catch((err) => { status.textContent = err.message || "Kon de trends niet laden."; });
+    }).catch((err) => { status.textContent = err.message || "Het lukte even niet om de trends op te halen. Probeer het zo nog eens."; });
   }
 </script>

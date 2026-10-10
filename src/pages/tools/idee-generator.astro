@@ -2,13 +2,14 @@
 import Base from "../../layouts/Base.astro";
 import IdeaFeed from "../../components/IdeaFeed.astro";
 ---
-<Base title="Dev idee-generator" description="Elke dag nieuwe ideeën voor tools en side projects, gebaseerd op wat developers deze week trending vinden op GitHub, Hacker News, dev.to, Lobsters en Reddit.">
-  <h1>💡 Dev idee-generator</h1>
-  <p class="lead">Zoek je een side project? Elke dag nieuwe tool-ideeën op basis van wat deze week trending is bij developers. Klik zo vaak je wilt voor nieuwe combinaties.</p>
+<Base title="Dev idee-generator" description="Elke dag nieuwe ideeën voor een side project of tool, op basis van wat er deze week trending is op GitHub, Hacker News, dev.to, Lobsters en Reddit.">
+  <h1>💡 Dev <span class="hl">idee-generator</span></h1>
+  <p class="lead">Zin om iets te bouwen maar geen idee wat? Hier krijg je elke dag nieuwe ideeën, gebaseerd op waar developers het deze week over hebben. Blijf gerust op de knop drukken, ze raken niet op.</p>
 
   <IdeaFeed kind="dev" />
 
-  <h2>Hoe werkt het?</h2>
-  <p>Elk uur halen we de populairste nieuwe repositories van <a href="https://github.com/trending">GitHub</a>, de best scorende <em>Show HN</em>-projecten van <a href="https://news.ycombinator.com/show">Hacker News</a>, de top-artikelen en tags van <a href="https://dev.to/top/week">dev.to</a>, de <a href="https://lobste.rs">Lobsters</a>-frontpage en de topposts van r/webdev, r/javascript en r/programming op. Die onderwerpen worden gecombineerd met bewezen formats voor developer tools (playgrounds, validators, CLI's, extensies, mash-ups) en een doelgroep.</p>
-  <p class="muted">De "ideeën van vandaag" zijn voor iedereen hetzelfde en veranderen elke dag. De knop geeft willekeurige nieuwe combinaties, dus de voorraad is in de praktijk eindeloos.</p>
+  <h2>Waar komen de <span class="hl">ideeën</span> vandaan?</h2>
+  <p>Ik kijk elk uur wat er speelt: de snelst groeiende nieuwe repo's op <a href="https://github.com/trending">GitHub</a>, de populairste <a href="https://news.ycombinator.com/show">Show HN</a>-posts, de toppers van de week op <a href="https://dev.to/top/week">dev.to</a>, de voorpagina van <a href="https://lobste.rs">Lobsters</a> en wat er hot is op r/webdev, r/javascript en r/programming.</p>
+  <p>Die onderwerpen gooi ik in een mixer met formats waarvan ik weet dat ze werken voor dev tools: een playground, een validator, een CLI, een VS Code-extensie of een mash-up van twee trends tegelijk. Bij elk idee staat de post of repo waar het op gebaseerd is, zodat je zelf kunt checken of er echt vraag naar is.</p>
+  <p class="muted">De ideeën van vandaag zijn voor iedereen hetzelfde en morgen staan er weer nieuwe. Niet elk idee is meteen goud, maar er zit vaak wel iets tussen waar je verder mee kunt.</p>
 </Base>

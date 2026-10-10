@@ -20,8 +20,8 @@ export const TOOLS = [
   { href: "/tools/btw-calculator/", name: "BTW- & uurtarief-calculator", emoji: "🧮",
     blurb: "Van incl. naar excl. btw en terug, en het uurtarief dat je als zzp'er nodig hebt." },
   { href: "/tools/idee-generator/", name: "Dev idee-generator", emoji: "💡",
-    blurb: "Elke dag nieuwe side-project-ideeën op basis van wat trending is op GitHub, Hacker News, dev.to en Reddit." },
+    blurb: "Geen inspiratie voor een side project? Elke dag nieuwe ideeën op basis van wat er die week hot is bij developers." },
   { href: "/tools/passief-inkomen/", name: "Passief inkomen ideeën", emoji: "💸",
-    blurb: "Uitgewerkte bijverdien-ideeën met startkosten en stappenplan, geïnspireerd op trending Reddit-posts." },
+    blurb: "Ideeën om er iets naast te verdienen, met wat het kost, hoe lang het duurt en waar je begint." },
   ...DEV_TOOLS.map(({ slug, name, emoji, blurb }) => ({ href: `/tools/dev/${slug}/`, name, emoji, blurb })),
 ];
