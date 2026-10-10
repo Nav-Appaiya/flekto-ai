@@ -1,0 +1,60 @@
+---
+import Base from "../../layouts/Base.astro";
+const domain = import.meta.env.PUBLIC_MAIL_DOMAIN;
+const address = domain ? `reply@${domain}` : "";
+const mailto = `mailto:${address}?subject=${encodeURIComponent("Test van mijn mailserver")}&body=${encodeURIComponent("Hoi! Kun je laten weten of deze mail goed aankomt?")}`;
+---
+<Base title="Mail-antwoordbot" description="Stuur een mail en krijg binnen een minuut een AI-antwoord terug, plus een check van SPF, DKIM, DMARC en spamsignalen.">
+  <h1>🤖 Mail-antwoordbot</h1>
+  <p class="lead">Mail naar de antwoordbot en je krijgt binnen een minuut antwoord: een passende reactie op je bericht, geschreven door AI, plus een technische check van je mail.</p>
+
+  {domain ? (
+    <div class="card hero">
+      <p class="muted">Stuur een mail naar</p>
+      <p class="address"><code id="addr">{address}</code></p>
+      <div class="actions">
+        <a class="btn" href={mailto}>Open in je mailprogramma</a>
+        <button id="copy" class="btn ghost" type="button">Kopieer adres</button>
+      </div>
+    </div>
+  ) : (
+    <p class="card notice">De antwoordbot wordt binnenkort geactiveerd.</p>
+  )}
+
+  <h2>Wat je terugkrijgt</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>✍️ Een echt antwoord</h3>
+      <p>Claude leest je mail en schrijft een passend antwoord in dezelfde taal. Handig om reply-flows te testen, of om snel een concept-antwoord te krijgen.</p>
+    </div>
+    <div class="card">
+      <h3>🔍 Een mailcheck</h3>
+      <p>Komt je mail goed aan? Je ziet of <strong>SPF</strong>, <strong>DKIM</strong> en <strong>DMARC</strong> slagen, of er een tekstversie en Message-ID is, en of er spamsignalen in zitten, zoals linkverkorters of een onderwerp in hoofdletters.</p>
+    </div>
+  </div>
+
+  <h2>Goed om te weten</h2>
+  <ul>
+    <li>Je krijgt alleen antwoord als je mail <strong>DMARC</strong> haalt. Zo kan niemand de bot misbruiken om mail naar een vervalst adres te sturen. Komt er niets terug? Dan is dat meteen je testresultaat.</li>
+    <li>Maximaal 5 antwoorden per afzender per uur. Automatische mails (bounces, nieuwsbrieven, andere bots) krijgen geen antwoord, om mailloops te voorkomen.</li>
+    <li>Je bericht wordt niet opgeslagen. Het gaat alleen naar de AI om het antwoord te schrijven; van lange mails worden de eerste 8.000 tekens gebruikt.</li>
+  </ul>
+
+  <style>
+    .notice { border-color: var(--accent); }
+    .hero { text-align: center; padding: 2rem 1rem; }
+    .hero p { margin: 0; }
+    .address { font-size: clamp(1.2rem, 4vw, 1.8rem); margin: .5rem 0 1.25rem !important; overflow-wrap: anywhere; }
+    .address code { border: 0; background: none; }
+    .actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .75rem; }
+    .actions a { text-decoration: none; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+    .grid h3 { margin-top: 0; }
+  </style>
+  <script>
+    document.getElementById("copy")?.addEventListener("click", (e) => {
+      navigator.clipboard.writeText(document.getElementById("addr")!.textContent ?? "");
+      (e.target as HTMLButtonElement).textContent = "Gekopieerd ✓";
+    });
+  </script>
+</Base>

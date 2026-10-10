@@ -1,0 +1,187 @@
+---
+import Base from "../../layouts/Base.astro";
+const domain = import.meta.env.PUBLIC_MAIL_DOMAIN;
+---
+<Base title="Tijdelijke inbox" description="Een wegwerp-e-mailadres dat mails direct in je browser laat zien. Handig voor aanmeldingen en om je eigen mailflows te testen.">
+  <h1>📥 Tijdelijke inbox</h1>
+  <p class="lead">Een wegwerpadres voor aanmeldingen waar je geen spam van wilt, of om de bevestigingsmails van je eigen app te testen. Mails verschijnen hier live.</p>
+
+  {!domain && <p class="card notice">De mailtools worden binnenkort geactiveerd.</p>}
+
+  <div id="start" class="card start" data-domain={domain}>
+    <label>Geldig voor
+      <select id="ttl"><option value="10">10 minuten</option><option value="60" selected>1 uur</option><option value="1440">1 dag</option></select>
+    </label>
+    <button id="create" class="btn" disabled={!domain}>Maak een adres</button>
+    <span id="err" class="error" aria-live="polite"></span>
+  </div>
+
+  <div id="box" class="card" hidden>
+    <label class="muted" for="address">Je tijdelijke adres:</label>
+    <div class="row">
+      <input id="address" readonly />
+      <button id="copy" class="btn" type="button">Kopieer</button>
+    </div>
+    <p class="muted live"><span class="dot"></span> Wacht op mail… verloopt om <span id="expires"></span> · <a id="new" href="#">nieuw adres</a></p>
+  </div>
+
+  <div id="mailbox" class="mailbox" hidden>
+    <ul id="list" class="list"></ul>
+    <article id="view" class="card view">
+      <p class="muted">Kies een mail om te lezen.</p>
+    </article>
+  </div>
+
+  <h2>Goed om te weten</h2>
+  <ul>
+    <li>Alleen ontvangen, niet versturen. Bijlagen worden niet bewaard, alleen hun naam en grootte.</li>
+    <li>Iedereen die het adres kent, kan de mails zien. Gebruik het niet voor bankzaken of wachtwoordherstel van belangrijke accounts.</li>
+    <li>Afbeeldingen van externe servers (vaak trackingpixels) worden standaard geblokkeerd.</li>
+    <li>Wil je testen of je eigen mail goed aankomt? Gebruik de <a href="/tools/mail-antwoordbot/">mail-antwoordbot</a>.</li>
+  </ul>
+
+  <style>
+    .notice { border-color: var(--accent); }
+    .start { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .start label { display: flex; align-items: center; gap: .5rem; }
+    .row { display: flex; gap: .5rem; margin: .25rem 0 .5rem; }
+    .row input { flex: 1; font: 600 1.1rem ui-monospace, Menlo, monospace; }
+    .live { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .dot { width: .6rem; height: .6rem; border-radius: 50%; background: #2f9e44; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+    .mailbox { display: grid; grid-template-columns: 18rem 1fr; gap: 1rem; margin-top: 1rem; align-items: start; }
+    @media (max-width: 48rem) { .mailbox { grid-template-columns: 1fr; } }
+    .list { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+    .list :global(button) { width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; cursor: pointer; display: grid; gap: .1rem; }
+    .list :global(button[aria-current="true"]) { border-color: var(--accent); }
+    .list :global(.from) { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list :global(.subj), .list :global(.when) { font-size: .85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .view { min-height: 20rem; }
+    .view :global(h3) { margin: 0 0 .25rem; }
+    .view :global(.meta) { font-size: .85rem; color: var(--muted); margin-bottom: .75rem; }
+    .view :global(.tabs) { display: flex; gap: .5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .view :global(iframe) { width: 100%; height: 60vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .view :global(pre) { white-space: pre-wrap; word-break: break-word; max-height: 60vh; overflow: auto; }
+  </style>
+
+  <script>
+    import { hasRemoteImages, htmlMailDocument } from "../../lib/mailview.js";
+
+    type Mail = { id: number; received_at: string; from_addr: string; from_name: string; subject: string;
+      text_body: string; html_body: string; attachments: { filename: string; size: number }[] };
+
+    type ViewMode = "html" | "html-images" | "text";
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const domain = $("start").dataset.domain;
+    const mails = new Map<number, Mail>();
+    let lastId = 0;
+    let timer: number | undefined;
+
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className = "") =>
+      Object.assign(document.createElement(tag), { textContent: text, className });
+    const time = (iso: string) => new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+
+    function listItem(mail: Mail) {
+      const button = Object.assign(document.createElement("button"), { type: "button" });
+      button.dataset.id = String(mail.id);
+      button.append(el("span", mail.from_name || mail.from_addr, "from"), el("span", mail.subject || "(geen onderwerp)", "subj"),
+        el("span", time(mail.received_at), "when"));
+      const li = document.createElement("li");
+      li.append(button);
+      return li;
+    }
+
+    function htmlFrame(mail: Mail, loadRemoteImages: boolean) {
+      const frame = Object.assign(document.createElement("iframe"), { title: "Inhoud van de mail" });
+      frame.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+      frame.srcdoc = htmlMailDocument(mail.html_body, { loadRemoteImages });
+      return frame;
+    }
+
+    function body(mail: Mail, mode: ViewMode) {
+      if (mode === "text" || !mail.html_body) return el("pre", mail.text_body || "(lege mail)");
+      return htmlFrame(mail, mode === "html-images");
+    }
+
+    function modeButtons(mail: Mail, show: (mode: ViewMode) => void) {
+      const tabs = el("div", "", "tabs");
+      const button = (label: string, mode: ViewMode) => {
+        const b = el("button", label, "btn ghost");
+        b.addEventListener("click", () => show(mode));
+        return b;
+      };
+      if (mail.html_body) tabs.append(button("Opgemaakt", "html"), button("Platte tekst", "text"));
+      if (hasRemoteImages(mail.html_body)) tabs.append(button("Afbeeldingen laden", "html-images"));
+      return tabs;
+    }
+
+    /** "Van Name <addr> · 14:05 · bijlagen: a.pdf (12 KB)" */
+    function mailMeta(mail: Mail) {
+      const sender = mail.from_name ? `${mail.from_name} <${mail.from_addr}>` : mail.from_addr;
+      const files = mail.attachments.map((a) => `${a.filename} (${Math.round(a.size / 1024)} KB)`).join(", ");
+      return [`Van ${sender}`, time(mail.received_at), files && `bijlagen: ${files}`].filter(Boolean).join(" · ");
+    }
+
+    function openMail(id: number) {
+      const mail = mails.get(id)!;
+      for (const b of $("list").querySelectorAll("button")) b.setAttribute("aria-current", String(b.dataset.id === String(id)));
+      const holder = document.createElement("div");
+      const show = (mode: ViewMode) => holder.replaceChildren(body(mail, mode));
+      $("view").replaceChildren(el("h3", mail.subject || "(geen onderwerp)"), el("div", mailMeta(mail), "meta"),
+        modeButtons(mail, show), holder);
+      show("html");
+    }
+
+    async function poll(id: string) {
+      const res = await fetch(`/api/inboxes/${id}?after=${lastId}`);
+      if (!res.ok) return;
+      const fresh: Mail[] = await res.json();
+      if (!fresh.length) return;
+      lastId = fresh[0].id;
+      for (const m of fresh) mails.set(m.id, m);
+      $("list").prepend(...fresh.map(listItem));
+      $("mailbox").hidden = false;
+    }
+
+    // Remembered per inbox so a page reload (address in the URL hash) still shows when it expires.
+    function rememberExpiry(id: string, expiresAt?: string) {
+      try {
+        if (expiresAt) localStorage.setItem(`inbox:${id}`, expiresAt);
+        return localStorage.getItem(`inbox:${id}`) ?? undefined;
+      } catch { return expiresAt; }
+    }
+
+    function open(id: string, expiresAt?: string) {
+      const expiry = rememberExpiry(id, expiresAt);
+      $<HTMLInputElement>("address").value = `${id}@${domain}`;
+      $("expires").textContent = expiry ? time(expiry) : "de gekozen tijd";
+      $("start").hidden = true;
+      $("box").hidden = false;
+      mails.clear();
+      $("list").replaceChildren();
+      lastId = 0;
+      clearInterval(timer);
+      poll(id);
+      timer = window.setInterval(() => poll(id), 3000);
+    }
+
+    async function create() {
+      const res = await fetch(`/api/inboxes?ttl=${$<HTMLSelectElement>("ttl").value}`, { method: "POST" });
+      const inbox = await res.json();
+      if (!res.ok) return void ($("err").textContent = inbox.error);
+      location.hash = inbox.id;
+      open(inbox.id, inbox.expiresAt);
+    }
+
+    $("create").addEventListener("click", create);
+    $("new").addEventListener("click", (e) => { e.preventDefault(); $("box").hidden = true; $("mailbox").hidden = true; $("start").hidden = false; });
+    $("copy").addEventListener("click", () => navigator.clipboard.writeText($<HTMLInputElement>("address").value));
+    $("list").addEventListener("click", (e) => {
+      const id = (e.target as HTMLElement).closest<HTMLElement>("button")?.dataset.id;
+      if (id) openMail(Number(id));
+    });
+    if (domain && location.hash.length > 1) open(location.hash.slice(1));
+  </script>
+</Base>

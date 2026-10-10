@@ -24,4 +24,8 @@ export const TOOLS = [
   { href: "/tools/passief-inkomen/", name: "Passief inkomen ideeën", emoji: "💸",
     blurb: "Ideeën om er iets naast te verdienen, met wat het kost, hoe lang het duurt en waar je begint." },
   ...DEV_TOOLS.map(({ slug, name, emoji, blurb }) => ({ href: `/tools/dev/${slug}/`, name, emoji, blurb })),
+  { href: "/tools/tijdelijke-inbox/", name: "Tijdelijke inbox", emoji: "📥",
+    blurb: "Een wegwerp-e-mailadres waarvan je de mails live in je browser ziet. Geen spam in je echte inbox." },
+  { href: "/tools/mail-antwoordbot/", name: "Mail-antwoordbot", emoji: "🤖",
+    blurb: "Mail de bot en krijg een AI-antwoord terug, plus een check van SPF, DKIM, DMARC en spamsignalen." },
 ];

@@ -1,0 +1,15 @@
+name = "flekto-mail"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# The separate domain for temporary inboxes; must match PUBLIC_MAIL_DOMAIN in the site's .env.
+MAIL_DOMAIN = "VUL-HIER-JE-MAILDOMEIN-IN"
+SUPABASE_URL = "https://ousecouxuauoyqcvravn.supabase.co"
+# Publishable key: safe to commit, tables are only reachable through the RPC functions.
+SUPABASE_KEY = "sb_publishable_zZYtq-otwONHZNsFNxsmbQ_-4B2fzQo"
+
+# Secrets (not in this file):
+#   npx wrangler secret put WORKER_SECRET      (value is in .dev.vars)
+#   npx wrangler secret put ANTHROPIC_API_KEY
