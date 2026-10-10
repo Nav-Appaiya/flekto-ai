@@ -1,9 +1,7 @@
+import { json } from "../../lib/http.js";
 import { fetchListings, geocode, isPostcode, newNearby, normalizePostcode } from "../../lib/gratis.js";
 
 export const prerender = false;
-
-const json = (body, status = 200, extra = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...extra } });
 
 // One upstream request per postcode+radius per 5 min at most: the CDN serves repeats.
 const CACHE = { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" };

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@astrojs/vercel": "^8.2.11",
-    "astro": "^5.14.0"
+    "astro": "^5.14.0",
+    "qrcode": "^1.5.4"
   }
 }

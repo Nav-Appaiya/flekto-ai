@@ -1,0 +1,89 @@
+---
+import Base from "../../layouts/Base.astro";
+import { VAT_RATES } from "../../lib/btw.js";
+---
+<Base title="BTW- en uurtarief-calculator" description="Reken bedragen om van incl. naar excl. btw (21%, 9%, 0%) en bereken je uurtarief als zzp'er.">
+  <h1>🧮 BTW- en uurtarief-calculator</h1>
+  <p class="lead">Snel van incl. naar excl. btw en terug, en uitrekenen welk uurtarief je als zzp'er nodig hebt.</p>
+
+  <div class="grid">
+    <form id="vat" class="card">
+      <h2>BTW berekenen</h2>
+      <label>Bedrag (€) <input name="amount" type="number" inputmode="decimal" step="0.01" min="0" value="100" /></label>
+      <fieldset>
+        <legend>Tarief</legend>
+        {VAT_RATES.map((r) => <label class="inline"><input type="radio" name="rate" value={r} checked={r === 21} /> {r}%</label>)}
+      </fieldset>
+      <fieldset>
+        <legend>Het bedrag is</legend>
+        <label class="inline"><input type="radio" name="incl" value="0" checked /> exclusief btw</label>
+        <label class="inline"><input type="radio" name="incl" value="1" /> inclusief btw</label>
+      </fieldset>
+      <dl class="result">
+        <dt>Exclusief btw</dt><dd id="excl"></dd>
+        <dt>BTW</dt><dd id="vatAmount"></dd>
+        <dt>Inclusief btw</dt><dd id="inclAmount" class="total"></dd>
+      </dl>
+    </form>
+
+    <form id="rate" class="card">
+      <h2>Uurtarief zzp</h2>
+      <label>Gewenst bruto jaarinkomen (€) <input name="income" type="number" min="0" step="1000" value="60000" /></label>
+      <label>Zakelijke kosten per jaar (€) <input name="costs" type="number" min="0" step="500" value="12000" /></label>
+      <label>Werkweken per jaar <input name="weeks" type="number" min="1" max="52" value="45" /></label>
+      <label>Uren per week <input name="hoursPerWeek" type="number" min="1" max="80" value="40" /></label>
+      <label>Declarabel deel (%) <input name="billablePct" type="number" min="1" max="100" value="60" /></label>
+      <dl class="result">
+        <dt>Declarabele uren per jaar</dt><dd id="hours"></dd>
+        <dt>Minimaal uurtarief (excl. btw)</dt><dd id="hourly" class="total"></dd>
+      </dl>
+      <p class="muted small">Kosten zijn o.a. pensioen, verzekeringen (AOV), software, opleiding en reserve voor ziekte. Een declarabel deel van 60–70% is normaal: acquisitie en administratie betaalt niemand.</p>
+    </form>
+  </div>
+
+  <style>
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1.5rem; align-items: start; }
+    form { display: grid; gap: .8rem; }
+    h2 { margin: 0; font-size: 1.2rem; }
+    form > label { display: grid; gap: .25rem; font-size: .9rem; color: var(--muted); }
+    fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+    legend { font-size: .9rem; color: var(--muted); margin-bottom: .25rem; width: 100%; }
+    .inline { display: flex; align-items: center; gap: .35rem; }
+    .result { display: grid; grid-template-columns: 1fr auto; gap: .35rem 1rem; margin: .5rem 0 0; padding-top: .75rem; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    dd { margin: 0; text-align: right; font-weight: 600; }
+    .total { color: var(--accent-ink); font-size: 1.3rem; }
+    .small { font-size: .85rem; margin: 0; }
+  </style>
+
+  <script>
+    import { hourlyRate, splitVat } from "../../lib/btw.js";
+
+    const euro = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
+    const $ = (id: string) => document.getElementById(id)!;
+    const vatForm = $("vat") as HTMLFormElement;
+    const rateForm = $("rate") as HTMLFormElement;
+    const num = (data: FormData, name: string) => Number(data.get(name)) || 0;
+
+    function renderVat() {
+      const data = new FormData(vatForm);
+      const r = splitVat(num(data, "amount"), num(data, "rate"), data.get("incl") === "1");
+      $("excl").textContent = euro.format(r.excl);
+      $("vatAmount").textContent = euro.format(r.vat);
+      $("inclAmount").textContent = euro.format(r.incl);
+    }
+
+    function renderRate() {
+      const data = new FormData(rateForm);
+      const r = hourlyRate({ income: num(data, "income"), costs: num(data, "costs"), weeks: num(data, "weeks"),
+        hoursPerWeek: num(data, "hoursPerWeek"), billablePct: num(data, "billablePct") });
+      $("hours").textContent = r.billableHours.toLocaleString("nl-NL");
+      $("hourly").textContent = euro.format(r.rate);
+    }
+
+    vatForm.addEventListener("input", renderVat);
+    rateForm.addEventListener("input", renderRate);
+    for (const form of [vatForm, rateForm]) form.addEventListener("submit", (e) => e.preventDefault());
+    renderVat();
+    renderRate();
+  </script>
+</Base>

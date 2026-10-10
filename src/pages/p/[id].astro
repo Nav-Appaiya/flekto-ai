@@ -1,0 +1,48 @@
+---
+import Base from "../../layouts/Base.astro";
+import { rpc } from "../../lib/db.js";
+
+export const prerender = false;
+
+const [paste] = await rpc("get_paste", { p_id: Astro.params.id });
+if (!paste) Astro.response.status = 404;
+const expires = paste && new Date(paste.expires_at).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Amsterdam" });
+const raw = `/p/${Astro.params.id}/raw`;
+---
+<Base title={paste ? "Gedeelde paste" : "Niet gevonden"} noindex>
+  {paste ? (
+    <>
+      <div class="bar">
+        <span class="muted">Verloopt op {expires}</span>
+        <span class="actions">
+          {paste.kind === "text" && <button id="copy" class="btn ghost" type="button">Kopieer tekst</button>}
+          <a class="btn ghost" href={raw}>{paste.kind === "image" ? "Origineel" : "Raw"}</a>
+          <a class="btn" href="/tools/paste/">Nieuwe paste</a>
+        </span>
+      </div>
+      {paste.kind === "image"
+        ? <img class="card shot" src={raw} alt="Gedeelde afbeelding" />
+        : <pre id="text">{paste.content}</pre>}
+    </>
+  ) : (
+    <>
+      <h1>Deze link bestaat niet (meer)</h1>
+      <p class="lead">De paste is verlopen of het adres klopt niet.</p>
+      <a class="btn" href="/tools/paste/">Maak een nieuwe paste</a>
+    </>
+  )}
+
+  <style>
+    .bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .actions { display: flex; gap: .5rem; }
+    .actions a { text-decoration: none; }
+    .shot { max-width: 100%; height: auto; padding: 0; display: block; margin: 0 auto; }
+    pre { white-space: pre-wrap; word-break: break-word; max-height: 75vh; }
+  </style>
+  <script>
+    document.getElementById("copy")?.addEventListener("click", (e) => {
+      navigator.clipboard.writeText(document.getElementById("text")!.textContent ?? "");
+      (e.target as HTMLButtonElement).textContent = "Gekopieerd ✓";
+    });
+  </script>
+</Base>

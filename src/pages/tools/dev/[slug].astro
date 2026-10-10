@@ -1,0 +1,78 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { DEV_TOOLS } from "../../../lib/devtools.js";
+
+export const getStaticPaths = () => DEV_TOOLS.map((tool) => ({ params: { slug: tool.slug }, props: { tool } }));
+const { tool } = Astro.props;
+const others = DEV_TOOLS.filter((t) => t !== tool);
+---
+<Base title={tool.name} description={`${tool.blurb} Gratis, zonder account, alles draait in je browser.`}>
+  <h1>{tool.emoji} {tool.name}</h1>
+  <p class="lead">{tool.blurb} Alles draait lokaal in je browser; er wordt niets verstuurd.</p>
+
+  <div class="card tool" data-slug={tool.slug}>
+    <label for="input">Invoer</label>
+    <textarea id="input" rows="8" spellcheck="false" autocomplete="off" placeholder={tool.placeholder}></textarea>
+    <div class="modes" role="group" aria-label="Actie">
+      {tool.modes.map((m, i) => <button type="button" class:list={["btn", i > 0 && "ghost"]} data-mode={i}>{m.label}</button>)}
+    </div>
+    <div class="out-head"><label for="output">Resultaat</label> <button type="button" id="copy" class="btn ghost">Kopieer</button></div>
+    <pre id="output" aria-live="polite" tabindex="0"></pre>
+  </div>
+
+  <h2>Meer developer tools</h2>
+  <ul class="others">
+    {others.map((t) => <li><a href={`/tools/dev/${t.slug}/`}>{t.emoji} {t.name}</a></li>)}
+  </ul>
+
+  <style>
+    .tool { display: grid; gap: .6rem; }
+    label { font-weight: 500; }
+    textarea { font: .95rem/1.5 ui-monospace, Menlo, monospace; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; width: 100%; }
+    textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .modes { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .out-head { display: flex; align-items: center; justify-content: space-between; margin-top: .5rem; }
+    #output { margin: 0; min-height: 4rem; white-space: pre-wrap; word-break: break-word; }
+    #output.error { color: var(--bad); }
+    .others { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; }
+  </style>
+
+  <script>
+    import { DEV_TOOLS } from "../../../lib/devtools.js";
+
+    const root = document.querySelector<HTMLElement>("[data-slug]")!;
+    const tool = DEV_TOOLS.find((t) => t.slug === root.dataset.slug)!;
+    const input = document.getElementById("input") as HTMLTextAreaElement;
+    const output = document.getElementById("output")!;
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-mode]")];
+    let mode = 0;
+    let runId = 0;
+
+    async function run() {
+      const id = ++runId; // async modes (hashes) may finish out of order; only the latest run may write
+      try {
+        const result = await tool.modes[mode].run(input.value);
+        if (id !== runId) return;
+        output.textContent = result;
+        output.classList.remove("error");
+      } catch (err) {
+        if (id !== runId) return;
+        output.textContent = input.value.trim() ? (err as Error).message : "";
+        output.classList.add("error");
+      }
+    }
+
+    buttons.forEach((b, i) => b.addEventListener("click", () => {
+      mode = i;
+      buttons.forEach((x, j) => x.classList.toggle("ghost", j !== i));
+      run();
+    }));
+    input.addEventListener("input", run);
+    document.getElementById("copy")!.addEventListener("click", async (e) => {
+      await navigator.clipboard.writeText(output.textContent ?? "");
+      (e.target as HTMLButtonElement).textContent = "Gekopieerd ✓";
+      setTimeout(() => ((e.target as HTMLButtonElement).textContent = "Kopieer"), 1500);
+    });
+    run();
+  </script>
+</Base>

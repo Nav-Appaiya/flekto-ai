@@ -1,0 +1,101 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="QR-code maker" description="Maak gratis een QR-code voor een link, tekst of je wifi-netwerk. Download als PNG of SVG, zonder account of tracking.">
+  <h1>🔳 QR-code maker</h1>
+  <p class="lead">Een QR-code voor een link, tekst of je wifi, zodat gasten zonder wachtwoord-gedoe online kunnen. Zonder tracking: de code bevat precies wat jij invult.</p>
+
+  <div class="layout">
+    <form id="form" class="card">
+      <div class="tabs" role="radiogroup" aria-label="Soort QR-code">
+        <label><input type="radio" name="kind" value="text" checked /> Link of tekst</label>
+        <label><input type="radio" name="kind" value="wifi" /> Wifi</label>
+      </div>
+      <div data-kind="text">
+        <label>Link of tekst <textarea name="text" rows="3" placeholder="https://flekto.nl">https://flekto.nl</textarea></label>
+      </div>
+      <div data-kind="wifi" hidden>
+        <label>Netwerknaam (SSID) <input name="ssid" placeholder="ThuisNetwerk" /></label>
+        <label>Wachtwoord <input name="password" type="text" autocomplete="off" /></label>
+        <label>Beveiliging
+          <select name="security"><option value="WPA">WPA/WPA2/WPA3</option><option value="WEP">WEP</option><option value="nopass">Geen</option></select>
+        </label>
+        <label class="inline"><input type="checkbox" name="hidden" /> Verborgen netwerk</label>
+      </div>
+      <label>Kleur <input name="color" type="color" value="#17171a" /></label>
+    </form>
+
+    <div class="card preview">
+      <canvas id="qr" width="300" height="300" aria-label="QR-code"></canvas>
+      <div class="dl">
+        <button id="png" class="btn" type="button">Download PNG</button>
+        <button id="svg" class="btn ghost" type="button">Download SVG</button>
+      </div>
+      <p id="err" class="error" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <style>
+    .layout { display: grid; grid-template-columns: 1fr 22rem; gap: 1.5rem; align-items: start; }
+    @media (max-width: 48rem) { .layout { grid-template-columns: 1fr; } }
+    form { display: grid; gap: .9rem; }
+    form label { display: grid; gap: .25rem; font-size: .9rem; color: var(--muted); }
+    form label.inline, .tabs label { display: flex; align-items: center; gap: .4rem; color: var(--fg); }
+    [data-kind] { display: grid; gap: .9rem; }
+    [data-kind][hidden] { display: none; }
+    textarea { font: inherit; background: var(--bg); color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: .55rem .75rem; resize: vertical; }
+    .tabs { display: flex; gap: 1.25rem; }
+    input[type="color"] { width: 4rem; height: 2.4rem; padding: .2rem; }
+    .preview { display: grid; justify-items: center; gap: 1rem; }
+    /* qrcode sets inline pixel sizes; keep it square and responsive */
+    canvas { width: 100% !important; max-width: 300px; height: auto !important; aspect-ratio: 1; background: #fff; border-radius: 8px; }
+    .dl { display: flex; gap: .5rem; }
+  </style>
+
+  <script>
+    import QRCode from "qrcode";
+    import { wifiPayload } from "../../lib/qr.js";
+
+    const form = document.getElementById("form") as HTMLFormElement;
+    const canvas = document.getElementById("qr") as HTMLCanvasElement;
+    const err = document.getElementById("err")!;
+
+    function payload(data: FormData) {
+      if (data.get("kind") === "text") return String(data.get("text")).trim();
+      const ssid = String(data.get("ssid")).trim();
+      return ssid && wifiPayload({
+        ssid, password: String(data.get("password")), security: String(data.get("security")), hidden: data.has("hidden"),
+      });
+    }
+
+    function options(data: FormData) {
+      return { margin: 2, width: 600, errorCorrectionLevel: "M" as const, color: { dark: String(data.get("color")), light: "#ffffff" } };
+    }
+
+    async function render() {
+      const data = new FormData(form);
+      for (const block of form.querySelectorAll<HTMLElement>("[data-kind]")) block.hidden = block.dataset.kind !== data.get("kind");
+      const text = payload(data);
+      err.textContent = "";
+      if (!text) return canvas.getContext("2d")!.clearRect(0, 0, canvas.width, canvas.height);
+      try {
+        await QRCode.toCanvas(canvas, text, options(data));
+      } catch {
+        err.textContent = "Te veel tekst voor één QR-code.";
+      }
+    }
+
+    function download(href: string, name: string) {
+      Object.assign(document.createElement("a"), { href, download: name }).click();
+    }
+
+    form.addEventListener("input", render);
+    document.getElementById("png")!.addEventListener("click", () => download(canvas.toDataURL("image/png"), "qr-code.png"));
+    document.getElementById("svg")!.addEventListener("click", async () => {
+      const data = new FormData(form);
+      const svg = await QRCode.toString(payload(data) || " ", { ...options(data), type: "svg" });
+      download(URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), "qr-code.svg");
+    });
+    render();
+  </script>
+</Base>

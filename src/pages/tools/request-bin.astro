@@ -1,0 +1,142 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Request bin" description="Vang en bekijk HTTP-requests en webhooks live. Gratis, zonder account, 24 uur geldig.">
+  <h1>📮 Request bin</h1>
+  <p class="lead">Krijg een tijdelijke URL en zie live elk request dat erop binnenkomt: webhooks testen, een API-client debuggen of checken wat een formulier echt verstuurt.</p>
+
+  <div id="start" class="card">
+    <button id="create" class="btn">Maak een nieuwe bin</button>
+    <span class="muted">Geldig voor 24 uur, maximaal 500 requests.</span>
+  </div>
+
+  <div id="bin" class="card" hidden>
+    <label class="muted" for="bin-url">Stuur requests naar:</label>
+    <div class="urlrow">
+      <input id="bin-url" readonly />
+      <button id="copy" class="btn ghost" type="button">Kopieer</button>
+    </div>
+    <pre><code id="curl"></code></pre>
+    <p class="muted live"><span class="dot"></span> Wacht op requests… <a id="new" href="#">nieuwe bin</a></p>
+  </div>
+
+  <ul id="requests" class="requests"></ul>
+
+  <h2>Hoe het werkt</h2>
+  <p>Elk request naar <code>/api/bin/&lt;id&gt;/…</code> wordt opgeslagen, met methode, pad, query, headers en body (max. 64 KB). Deze pagina vraagt elke 2 seconden om nieuwe requests. CORS staat open, dus je kunt ook vanuit de browser testen. Na 24 uur wordt de bin automatisch verwijderd.</p>
+  <p class="muted">Iedereen met de bin-URL kan de requests zien. Stuur er geen echte wachtwoorden of tokens naartoe.</p>
+
+  <style>
+    #start { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .urlrow { display: flex; gap: .5rem; margin: .25rem 0 .75rem; }
+    .urlrow input { flex: 1; font-family: ui-monospace, Menlo, monospace; }
+    pre { margin: 0; font-size: .85rem; white-space: pre-wrap; word-break: break-all; }
+    .live { margin: .75rem 0 0; display: flex; align-items: center; gap: .5rem; }
+    .dot { width: .6rem; height: .6rem; border-radius: 50%; background: #2f9e44; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+    .requests { list-style: none; padding: 0; display: grid; gap: .75rem; margin-top: 1.5rem; }
+    .requests :global(details) { padding: 0; }
+    .requests :global(summary) { display: flex; gap: .75rem; align-items: center; padding: .75rem 1rem; cursor: pointer; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; }
+    .requests :global(.method) { font-weight: 700; min-width: 4.5rem; color: var(--accent-ink); }
+    .requests :global(.path) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .requests :global(.time) { color: var(--muted); }
+    .requests :global(.detail) { padding: 0 1rem 1rem; display: grid; gap: .75rem; }
+    .requests :global(h3) { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: .5rem 0 .25rem; }
+    .requests :global(table) { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; border-collapse: collapse; width: 100%; }
+    .requests :global(td) { padding: .15rem .75rem .15rem 0; vertical-align: top; word-break: break-all; }
+    .requests :global(td:first-child) { color: var(--muted); white-space: nowrap; word-break: normal; }
+  </style>
+
+  <script>
+    type Captured = { id: number; created_at: string; method: string; path: string; query: Record<string, string>;
+      headers: Record<string, string>; body: string; ip: string };
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const list = $<HTMLUListElement>("requests");
+    let lastId = 0;
+    let timer: number | undefined;
+
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className = "") =>
+      Object.assign(document.createElement(tag), { textContent: text, className });
+
+    function prettyBody(body: string) {
+      try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+    }
+
+    function kvTable(obj: Record<string, string>) {
+      const table = document.createElement("table");
+      for (const [k, v] of Object.entries(obj)) {
+        const tr = document.createElement("tr");
+        tr.append(el("td", k), el("td", String(v)));
+        table.append(tr);
+      }
+      return table;
+    }
+
+    function section(title: string, content: HTMLElement) {
+      const div = document.createElement("div");
+      div.append(el("h3", title), content);
+      return div;
+    }
+
+    /** One-line overview: method, path + query, time. */
+    function requestSummary(r: Captured) {
+      const summary = document.createElement("summary");
+      const query = new URLSearchParams(r.query).toString();
+      summary.append(el("span", r.method, "method"), el("span", r.path + (query ? `?${query}` : ""), "path"),
+        el("span", new Date(r.created_at).toLocaleTimeString("nl-NL"), "time"));
+      return summary;
+    }
+
+    function requestDetail(r: Captured) {
+      const detail = el("div", "", "detail");
+      if (Object.keys(r.query).length) detail.append(section("Query", kvTable(r.query)));
+      detail.append(section("Headers", kvTable(r.headers)));
+      if (r.body) detail.append(section("Body", el("pre", prettyBody(r.body))));
+      detail.append(el("span", `Van ${r.ip}`, "muted"));
+      return detail;
+    }
+
+    function requestItem(r: Captured) {
+      const details = el("details", "", "card");
+      details.append(requestSummary(r), requestDetail(r));
+      const li = document.createElement("li");
+      li.append(details);
+      return li;
+    }
+
+    async function poll(binId: string) {
+      const res = await fetch(`/api/bins/${binId}?after=${lastId}`);
+      if (!res.ok) return;
+      const fresh: Captured[] = await res.json();
+      if (!fresh.length) return;
+      lastId = fresh[0].id;
+      list.prepend(...fresh.map(requestItem));
+    }
+
+    function open(binId: string) {
+      const url = `${location.origin}/api/bin/${binId}`;
+      $<HTMLInputElement>("bin-url").value = url;
+      $("curl").textContent = `curl -X POST ${url}/webhook -H "Content-Type: application/json" -d '{"hallo":"wereld"}'`;
+      $("start").hidden = true;
+      $("bin").hidden = false;
+      list.replaceChildren();
+      lastId = 0;
+      clearInterval(timer);
+      poll(binId);
+      timer = window.setInterval(() => poll(binId), 2000);
+    }
+
+    async function create() {
+      const { id } = await (await fetch("/api/bins", { method: "POST" })).json();
+      location.hash = id;
+      open(id);
+    }
+
+    $("create").addEventListener("click", create);
+    $("new").addEventListener("click", (e) => { e.preventDefault(); create(); });
+    $("copy").addEventListener("click", () => navigator.clipboard.writeText($<HTMLInputElement>("bin-url").value));
+    if (location.hash.length > 1) open(location.hash.slice(1));
+  </script>
+</Base>

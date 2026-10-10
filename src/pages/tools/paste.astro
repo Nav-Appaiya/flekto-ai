@@ -1,0 +1,114 @@
+---
+import Base from "../../layouts/Base.astro";
+import { TTL_OPTIONS } from "../../lib/paste.js";
+---
+<Base title="Paste & deel" description="Plak tekst of een afbeelding en krijg direct een deelbare link die vanzelf verloopt.">
+  <h1>📋 Paste & deel</h1>
+  <p class="lead">Plak tekst, code of een screenshot (Ctrl/Cmd+V) en krijg een link om te delen. Jij kiest hoe lang de link blijft bestaan.</p>
+
+  <form id="form" class="card">
+    <div id="drop" class="drop">
+      <textarea id="text" rows="12" placeholder="Plak hier tekst of code, of plak of sleep een afbeelding…"></textarea>
+      <div id="preview" class="preview" hidden>
+        <img id="img" alt="Voorbeeld van de afbeelding" />
+        <button id="clear" type="button" class="btn ghost">Verwijder afbeelding</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Link verloopt na
+        <select id="ttl">{TTL_OPTIONS.map((o) => <option value={o.minutes} selected={o.minutes === 1440}>{o.label}</option>)}</select>
+      </label>
+      <label class="file btn ghost">Afbeelding kiezen<input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden /></label>
+      <button class="btn">Maak link</button>
+    </div>
+  </form>
+
+  <div id="result" class="card result" hidden>
+    <label for="link" class="muted">Je link:</label>
+    <div class="row">
+      <input id="link" readonly />
+      <button id="copy" type="button" class="btn">Kopieer</button>
+    </div>
+  </div>
+  <p id="status" aria-live="polite"></p>
+
+  <p class="muted">Tekst tot 500.000 tekens, afbeeldingen tot 4 MB (PNG, JPEG, GIF, WebP). Iedereen met de link kan de paste zien. Na de gekozen tijd wordt hij definitief verwijderd.</p>
+
+  <style>
+    textarea { width: 100%; font: .9rem/1.5 ui-monospace, Menlo, monospace; background: var(--bg); color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; resize: vertical; }
+    .drop.over textarea, .drop.over .preview { outline: 2px dashed var(--accent); }
+    .preview { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+    .preview img { max-width: 100%; max-height: 360px; border-radius: 8px; border: 1px solid var(--line); }
+    .row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: .75rem; }
+    .row label { display: flex; align-items: center; gap: .5rem; }
+    .row input { flex: 1; font-family: ui-monospace, Menlo, monospace; }
+    .file { cursor: pointer; }
+    .result { margin-top: 1rem; border-color: var(--accent); }
+  </style>
+
+  <script>
+    import { MAX_IMAGE_BYTES } from "../../lib/paste.js";
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const text = $<HTMLTextAreaElement>("text");
+    const status = $("status");
+    let image: File | null = null;
+
+    function setImage(file: File | null) {
+      if (file && file.size > MAX_IMAGE_BYTES) return showError("Afbeelding is groter dan 4 MB.");
+      image = file;
+      $("preview").hidden = !file;
+      text.hidden = !!file;
+      if (file) $<HTMLImageElement>("img").src = URL.createObjectURL(file);
+    }
+
+    function showError(message: string) {
+      status.textContent = message;
+      status.className = "error";
+    }
+
+    const firstImage = (files: Iterable<File>) => [...files].find((f) => f.type.startsWith("image/")) ?? null;
+
+    /** Sends the image (raw bytes) or the text; resolves to the API's { url } or { error }. */
+    async function upload(): Promise<{ ok: boolean; url?: string; error?: string }> {
+      const res = await fetch(`/api/pastes?ttl=${$<HTMLSelectElement>("ttl").value}`, {
+        method: "POST",
+        headers: { "Content-Type": image ? image.type : "text/plain; charset=utf-8" },
+        body: image ?? text.value,
+      });
+      return { ok: res.ok, ...(await res.json()) };
+    }
+
+    async function submit(e: SubmitEvent) {
+      e.preventDefault();
+      if (!image && !text.value.trim()) return showError("Plak eerst tekst of een afbeelding.");
+      status.textContent = "Bezig…";
+      status.className = "muted";
+      const body = await upload();
+      if (!body.ok) return showError(body.error!);
+      status.textContent = "";
+      $<HTMLInputElement>("link").value = body.url;
+      $("result").hidden = false;
+    }
+
+    $("form").addEventListener("submit", submit);
+    $("clear").addEventListener("click", () => setImage(null));
+    $<HTMLInputElement>("file").addEventListener("change", (e) => setImage((e.target as HTMLInputElement).files?.[0] ?? null));
+    document.addEventListener("paste", (e) => {
+      const file = firstImage(e.clipboardData?.files ?? []);
+      if (file) { e.preventDefault(); setImage(file); }
+    });
+    const drop = $("drop");
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("over");
+      setImage(firstImage(e.dataTransfer?.files ?? []));
+    });
+    $("copy").addEventListener("click", () => {
+      navigator.clipboard.writeText($<HTMLInputElement>("link").value);
+      $("copy").textContent = "Gekopieerd ✓";
+    });
+  </script>
+</Base>

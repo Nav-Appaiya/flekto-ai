@@ -1,0 +1,93 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Viral-radar NL" description="Wat gaat er nu viraal in Nederland? De snelst stijgende onderwerpen, met achtergrond van NU.nl, AD en NOS.">
+  <h1>🔥 Viral-radar NL</h1>
+  <p class="lead">Waar heeft Nederland het nu over? De onderwerpen die op dit moment het hardst stijgen, met achtergrondartikelen van NU.nl, AD, NOS en andere Nederlandse media.</p>
+
+  <p class="toolbar"><span id="updated" class="muted">Laden…</span> <button id="refresh" class="btn ghost" type="button">Ververs</button></p>
+
+  <div class="layout">
+    <ol id="trends" class="trends"></ol>
+    <aside class="card">
+      <h2>Laatste nieuws</h2>
+      <ul id="latest" class="latest"></ul>
+    </aside>
+  </div>
+
+  <h2>Waar komt dit vandaan?</h2>
+  <p>De onderwerpen komen uit <a href="https://trends.google.com/trending?geo=NL">Google Trends Nederland</a>: zoektermen die in de afgelopen uren ineens veel vaker worden gezocht. Wat viraal gaat op TikTok, Instagram of Facebook zie je daar vrijwel direct terug, want mensen gaan het opzoeken. De achtergrond komt uit de nieuwslinks van Google en uit de RSS-feeds van NU.nl, AD en NOS, die op trefwoorden worden gekoppeld.</p>
+  <p class="muted">Waarom niet rechtstreeks TikTok, Instagram of Facebook? Die platforms hebben geen openbare trends-API. Instagram en Facebook zitten achter een login, en hun data scrapen mag niet volgens hun voorwaarden.</p>
+
+  <style>
+    .toolbar { display: flex; align-items: center; gap: 1rem; }
+    .layout { display: grid; grid-template-columns: 1fr 18rem; gap: 1.5rem; align-items: start; }
+    @media (max-width: 50rem) { .layout { grid-template-columns: 1fr; } }
+    .trends { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; counter-reset: trend; }
+    .trends > :global(li) { counter-increment: trend; display: grid; grid-template-columns: 5rem 1fr; gap: 1rem; }
+    .trends :global(.pic) { width: 5rem; height: 5rem; border-radius: 10px; object-fit: cover; background: var(--line); position: relative; }
+    .trends :global(.head) { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; }
+    .trends :global(h3) { margin: 0; font-size: 1.2rem; text-transform: capitalize; }
+    .trends :global(h3::before) { content: "#" counter(trend) " "; color: var(--muted); font-weight: 400; }
+    .trends :global(.traffic) { font-size: .8rem; font-weight: 700; color: var(--accent-ink); }
+    .trends :global(.since) { font-size: .8rem; color: var(--muted); }
+    .trends :global(ul), .latest { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .35rem; font-size: .92rem; }
+    .trends :global(a), .latest :global(a) { color: inherit; text-decoration: none; }
+    .trends :global(a:hover), .latest :global(a:hover) { color: var(--accent-ink); text-decoration: underline; }
+    :global(.src) { display: inline-block; font-size: .7rem; font-weight: 700; padding: .05rem .4rem; border-radius: 4px; margin-right: .4rem; background: var(--line); color: var(--fg); vertical-align: 1px; }
+    :global(.src.main) { background: var(--accent); color: #fff; }
+    aside h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+    .latest :global(li) { padding-bottom: .35rem; border-bottom: 1px solid var(--line); }
+  </style>
+
+  <script>
+    type Article = { title: string; url: string; source: string; date?: string };
+    type Trend = { title: string; traffic: string; startedAt: string; picture: string | null; background: Article[] };
+
+    const $ = (id: string) => document.getElementById(id)!;
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className = "") =>
+      Object.assign(document.createElement(tag), { textContent: text, className });
+    const time = (iso: string) => new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+    const MAIN_SOURCES = /^(NU|NU\.nl|AD|AD\.nl|NOS)$/;
+
+    function articleLink(a: Article) {
+      const li = document.createElement("li");
+      const link = Object.assign(document.createElement("a"), { href: a.url, target: "_blank", rel: "noopener" });
+      link.append(el("span", a.source, MAIN_SOURCES.test(a.source) ? "src main" : "src"), a.title);
+      li.append(link);
+      return li;
+    }
+
+    function trendItem(t: Trend) {
+      const li = el("li", "", "card");
+      const pic = t.picture
+        ? Object.assign(document.createElement("img"), { src: t.picture, alt: "", loading: "lazy", className: "pic", referrerPolicy: "no-referrer" })
+        : el("div", "", "pic");
+      const body = document.createElement("div");
+      const head = el("div", "", "head");
+      head.append(el("h3", t.title), el("span", `${t.traffic} zoekopdrachten`, "traffic"), el("span", `sinds ${time(t.startedAt)}`, "since"));
+      const news = document.createElement("ul");
+      news.append(...t.background.map(articleLink));
+      body.append(head, t.background.length ? news : el("p", "Nog geen nieuwsartikelen gevonden.", "muted"));
+      li.append(pic, body);
+      return li;
+    }
+
+    async function load() {
+      $("updated").textContent = "Laden…";
+      try {
+        const res = await fetch("/api/trends");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        $("trends").replaceChildren(...data.trends.map(trendItem));
+        $("latest").replaceChildren(...data.latest.map(articleLink));
+        $("updated").textContent = `Bijgewerkt om ${time(data.updatedAt)}`;
+      } catch (err) {
+        $("updated").textContent = (err as Error).message || "Kon de trends niet laden.";
+      }
+    }
+
+    $("refresh").addEventListener("click", load);
+    load();
+  </script>
+</Base>

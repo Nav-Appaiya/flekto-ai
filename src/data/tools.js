@@ -1,3 +1,5 @@
+import { DEV_TOOLS } from "../lib/devtools.js";
+
 export const TOOLS = [
   { href: "/tools/gratis-radar/", name: "Gratis-radar", emoji: "🎁",
     blurb: "Gratis spullen op Marktplaats binnen een paar km van jouw postcode, met pushmeldingen." },
@@ -5,4 +7,21 @@ export const TOOLS = [
     blurb: "De goedkoopste uren van vandaag en morgen om de wasmachine, vaatwasser of auto te laten draaien." },
   { href: "/tools/nl-dev-toolkit/", name: "NL dev toolkit", emoji: "🧰",
     blurb: "Valideer en genereer test-BSN, IBAN, postcode, KvK- en BTW-nummers, volledig in je browser." },
+  { href: "/tools/viral/", name: "Viral-radar NL", emoji: "🔥",
+    blurb: "Waar heeft Nederland het nu over? Stijgende onderwerpen met achtergrond van NU.nl, AD en NOS." },
+  { href: "/tools/paste/", name: "Paste & deel", emoji: "📋",
+    blurb: "Plak tekst of een screenshot en krijg een deelbare link die vanzelf verloopt." },
+  { href: "/tools/request-bin/", name: "Request bin", emoji: "📮",
+    blurb: "Vang webhooks en HTTP-requests en bekijk ze live. Ideaal om API-koppelingen te debuggen." },
+  { href: "/tools/afbeelding-verkleinen/", name: "Afbeelding verkleinen", emoji: "🖼️",
+    blurb: "Maak foto's kleiner en lichter voor e-mail of je website, zonder iets te uploaden." },
+  { href: "/tools/qr-code/", name: "QR-code maker", emoji: "🔳",
+    blurb: "QR-codes voor links, tekst of je wifi-netwerk. Download als PNG of SVG." },
+  { href: "/tools/btw-calculator/", name: "BTW- & uurtarief-calculator", emoji: "🧮",
+    blurb: "Van incl. naar excl. btw en terug, en het uurtarief dat je als zzp'er nodig hebt." },
+  { href: "/tools/idee-generator/", name: "Dev idee-generator", emoji: "💡",
+    blurb: "Elke dag nieuwe side-project-ideeën op basis van wat trending is op GitHub, Hacker News, dev.to en Reddit." },
+  { href: "/tools/passief-inkomen/", name: "Passief inkomen ideeën", emoji: "💸",
+    blurb: "Uitgewerkte bijverdien-ideeën met startkosten en stappenplan, geïnspireerd op trending Reddit-posts." },
+  ...DEV_TOOLS.map(({ slug, name, emoji, blurb }) => ({ href: `/tools/dev/${slug}/`, name, emoji, blurb })),
 ];

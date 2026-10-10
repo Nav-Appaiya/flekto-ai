@@ -1,0 +1,117 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+<Base title="Afbeelding verkleinen" description="Maak foto's kleiner en lichter (WebP/JPEG) voor e-mail, websites of uploadlimieten. Alles gebeurt in je browser.">
+  <h1>🖼️ Afbeelding verkleinen</h1>
+  <p class="lead">Maak foto's kleiner voor e-mail, je website of een uploadformulier met een limiet. Je bestanden verlaten je computer niet: alles gebeurt in je browser.</p>
+
+  <div class="card">
+    <label id="drop" class="drop">
+      <input id="files" type="file" accept="image/*" multiple hidden />
+      <strong>Kies foto's</strong> of sleep ze hierheen
+    </label>
+    <div class="opts">
+      <label>Max. formaat
+        <select id="max">
+          <option value="99999">Origineel</option><option value="3840">3840 px (4K)</option>
+          <option value="2560">2560 px</option><option value="1920" selected>1920 px (Full HD)</option>
+          <option value="1280">1280 px</option><option value="800">800 px</option>
+        </select>
+      </label>
+      <label>Formaat
+        <select id="format">
+          <option value="image/webp" selected>WebP (kleinst)</option><option value="image/jpeg">JPEG (overal te openen)</option><option value="image/png">PNG (zonder verlies)</option>
+        </select>
+      </label>
+      <label>Kwaliteit <span id="qval">80%</span>
+        <input id="quality" type="range" min="40" max="100" value="80" />
+      </label>
+    </div>
+  </div>
+
+  <ul id="out" class="out"></ul>
+
+  <style>
+    .drop { display: block; text-align: center; padding: 2rem 1rem; border: 2px dashed var(--line); border-radius: 10px; cursor: pointer; }
+    .drop.over, .drop:hover { border-color: var(--accent); }
+    .opts { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+    .opts label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; color: var(--muted); }
+    .out { list-style: none; padding: 0; display: grid; gap: .75rem; margin-top: 1rem; }
+    .out :global(li) { display: grid; grid-template-columns: 4rem 1fr auto; gap: 1rem; align-items: center; }
+    .out :global(img) { width: 4rem; height: 4rem; object-fit: cover; border-radius: 8px; }
+    .out :global(.name) { font-weight: 600; overflow-wrap: anywhere; }
+    .out :global(.saved) { color: #2f9e44; font-weight: 700; }
+    .out :global(.btn) { text-decoration: none; }
+  </style>
+
+  <script>
+    import { fitWithin, formatBytes, renamed } from "../../lib/image.js";
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const out = $<HTMLUListElement>("out");
+    let files: File[] = [];
+    let objectUrls: string[] = [];
+
+    const settings = () => ({
+      maxSide: Number($<HTMLSelectElement>("max").value),
+      mime: $<HTMLSelectElement>("format").value,
+      quality: Number($<HTMLInputElement>("quality").value) / 100,
+    });
+
+    async function shrink(file: File, { maxSide, mime, quality }: ReturnType<typeof settings>) {
+      const bitmap = await createImageBitmap(file);
+      const size = fitWithin(bitmap.width, bitmap.height, maxSide);
+      const canvas = Object.assign(document.createElement("canvas"), size);
+      canvas.getContext("2d")!.drawImage(bitmap, 0, 0, size.width, size.height);
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), mime, quality));
+      return { blob, ...size };
+    }
+
+    type Shrunk = { blob: Blob; width: number; height: number };
+
+    /** Name, before → after size, dimensions and the saving. */
+    function sizeInfo(file: File, result: Shrunk) {
+      const pct = Math.round((1 - result.blob.size / file.size) * 100);
+      const info = document.createElement("div");
+      info.append(
+        Object.assign(document.createElement("div"), { className: "name", textContent: file.name }),
+        `${formatBytes(file.size)} → ${formatBytes(result.blob.size)} · ${result.width}×${result.height} `,
+        Object.assign(document.createElement("span"), { className: pct > 0 ? "saved" : "muted", textContent: pct > 0 ? `−${pct}%` : "niet kleiner" }),
+      );
+      return info;
+    }
+
+    function row(file: File, result: Shrunk) {
+      const url = URL.createObjectURL(result.blob);
+      objectUrls.push(url);
+      const li = Object.assign(document.createElement("li"), { className: "card" });
+      li.append(
+        Object.assign(document.createElement("img"), { src: url, alt: "" }),
+        sizeInfo(file, result),
+        Object.assign(document.createElement("a"), { href: url, download: renamed(file.name, result.blob.type), className: "btn", textContent: "Download" }),
+      );
+      return li;
+    }
+
+    async function render() {
+      const opts = settings();
+      objectUrls.forEach(URL.revokeObjectURL); // previous results are replaced below
+      objectUrls = [];
+      $("qval").textContent = `${Math.round(opts.quality * 100)}%`;
+      const rows = await Promise.all(files.map(async (f) => row(f, await shrink(f, opts))));
+      out.replaceChildren(...rows);
+    }
+
+    function setFiles(list: FileList | null | undefined) {
+      files = [...(list ?? [])].filter((f) => f.type.startsWith("image/"));
+      render();
+    }
+
+    $<HTMLInputElement>("files").addEventListener("change", (e) => setFiles((e.target as HTMLInputElement).files));
+    for (const id of ["max", "format", "quality"]) $(id).addEventListener("change", render);
+    const drop = $("drop");
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); setFiles(e.dataTransfer?.files); });
+  </script>
+</Base>
