@@ -25,6 +25,8 @@ Wat er in zit en hoe je het zelf draait staat hieronder. Wat er per versie veran
 | 🧰 **NL dev toolkit** (`/tools/nl-dev-toolkit/`) | Test-BSN's, IBAN's, postcodes, KvK- en BTW-nummers checken of genereren. Nep, maar ze kloppen met de 11-proef en mod 97. |
 | 📋 **Paste & deel** (`/tools/paste/`) | Tekst of een screenshot plakken en een link krijgen die vanzelf weer verdwijnt. |
 | 📮 **Request bin** (`/tools/request-bin/`) | Webhooks en HTTP-requests opvangen en live bekijken. Handig bij het debuggen van API-koppelingen. |
+| 📥 **Tijdelijke inbox** (`/tools/tijdelijke-inbox/`) | Een wegwerp-mailadres (10 minuten, een uur of een dag) waarvan je de mails live ziet. Fijn voor aanmeldingen of om de mails van je eigen app te testen. HTML-mails worden in een afgeschermd frame getoond en externe plaatjes (trackingpixels) laden pas als jij dat wilt. |
+| 🤖 **Mail-antwoordbot** (`/tools/mail-antwoordbot/`) | Mail de bot en je krijgt binnen een minuut antwoord: een reactie geschreven door Claude plus een check van SPF, DKIM, DMARC en spamsignalen. Antwoordt nooit op automatische mails, dus geen mail-loops. |
 | 💡 **Dev idee-generator** (`/tools/idee-generator/`) | Elke dag nieuwe ideeën voor een side project of tool, op basis van wat er die week trending is op GitHub, Hacker News, dev.to, Lobsters en Reddit. Je kunt eindeloos nieuwe ideeën laten maken. |
 | 🧹 **JSON formatter** (`/tools/dev/json-formatter/`) | JSON opmaken, minifyen of de keys sorteren. Klopt er iets niet, dan zie je waar. |
 | 🔷 **JSON → TypeScript** (`/tools/dev/json-naar-typescript/`) | Plak een API-response en krijg de interfaces terug, inclusief optionele velden en geneste objecten. |
@@ -68,9 +70,24 @@ Zet ze in `.env` (staat in `.gitignore`) of in Vercel:
 
 | Variabele | Nodig voor |
 | --- | --- |
-| `SUPABASE_URL`, `SUPABASE_KEY` | Paste & deel en Request bin (opslag in Supabase) |
+| `SUPABASE_URL`, `SUPABASE_KEY` | Paste & deel, Request bin en Tijdelijke inbox (opslag in Supabase) |
+| `PUBLIC_MAIL_DOMAIN` | Tijdelijke inbox en Mail-antwoordbot. Zolang deze leeg is staat er "binnenkort geactiveerd" op die pagina's. |
 
 De gratis-radar meldingen draaien via `.github/workflows/gratis-radar.yml`. Daarvoor stel je in GitHub de variabelen `POSTCODE`, `RADIUS_KM` en `KEYWORDS` in, en het secret `NTFY_TOPIC`.
+
+### De mail-worker
+
+De tijdelijke inbox en de antwoordbot krijgen hun mail binnen via een Cloudflare Email Worker in `workers/mail/`. Die heeft een eigen (los) maildomein nodig met Cloudflare Email Routing erop.
+
+```bash
+cd workers/mail
+npm install
+npx wrangler secret put WORKER_SECRET       # zelfde waarde als in .dev.vars
+npx wrangler secret put ANTHROPIC_API_KEY   # voor de antwoordbot
+npm run deploy
+```
+
+Zet in `wrangler.toml` je domein bij `MAIL_DOMAIN` en gebruik hetzelfde domein voor `PUBLIC_MAIL_DOMAIN` op de site. Mails naar `reply@<domein>` gaan naar de antwoordbot, al het andere naar de tijdelijke inboxen.
 
 ### Tests
 
@@ -78,6 +95,7 @@ Geen testframework, gewoon `node:assert`. Elk bestand print `ok` als alles goed 
 
 ```bash
 for f in src/lib/*.test.mjs; do node "$f"; done
+node workers/mail/src/mail.test.mjs
 ```
 
 ## Hoe het in elkaar zit
@@ -94,6 +112,7 @@ src/
   pages/tools/dev/[slug]   één template voor alle dev tools
   pages/api/               serverless endpoints
 gratis-radar/radar.mjs     cronjob voor de gratis-radar meldingen
+workers/mail/              Cloudflare Email Worker voor de mailtools
 ```
 
 ### Een dev tool toevoegen
